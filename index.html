@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股綜合買入/做空評分</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #171a21; --text: #e6e6e6; --muted: #9aa0a6;
+    --accent: #4da3ff; --up: #ff6b6b; --down: #34c759; --border: #2a2e37;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --card: #ffffff; --text: #1a1a1a; --muted: #5f6368; --border: #e2e5ea; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    margin-bottom: 14px;
+  }
+  .toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .toggle button {
+    padding: 8px 18px; border: none; background: var(--card); color: var(--text);
+    cursor: pointer; font-size: 0.95rem;
+  }
+  .toggle button.active { background: var(--accent); color: #fff; }
+  select, input[type=text] {
+    padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); font-size: 0.9rem;
+  }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 0.88rem; }
+  th, td { padding: 8px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  th { position: sticky; top: 0; background: var(--card); cursor: pointer; user-select: none; }
+  th.sorted::after { content: " " attr(data-dir); color: var(--accent); }
+  tbody tr:hover { background: rgba(128,128,128,0.08); }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 5px; font-size: 0.75rem; margin-right: 4px; }
+  .tag.trap { background: rgba(52,199,89,0.18); color: var(--down); }
+  .tag.recovery { background: rgba(77,163,255,0.18); color: var(--accent); }
+  .tag.gap { background: rgba(255,107,107,0.18); color: var(--up); }
+  .score { font-weight: 600; }
+  .disclaimer { color: var(--muted); font-size: 0.8rem; margin-top: 16px; }
+  #empty { padding: 30px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+  <h1>📋 台股綜合買入/做空評分</h1>
+  <div class="meta" id="meta">載入中...</div>
+
+  <div class="controls">
+    <div class="toggle">
+      <button id="btn-long" class="active">多方（做多）</button>
+      <button id="btn-short">空方（做空）</button>
+    </div>
+    <select id="industry-filter"><option value="">全部產業</option></select>
+    <input type="text" id="search" placeholder="搜尋代號或名稱...">
+  </div>
+
+  <div class="table-wrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th data-key="stock_id">代號</th>
+          <th data-key="name">名稱</th>
+          <th data-key="industry">產業</th>
+          <th data-key="close">收盤</th>
+          <th data-key="total_score">總分</th>
+          <th data-key="neckline_score">頸線分</th>
+          <th data-key="ma_score">均線分</th>
+          <th data-key="neckline_source">頸線來源</th>
+          <th data-key="neckline_dist_pct">距現價%</th>
+          <th data-key="flags">標記</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty" style="display:none">沒有符合條件的個股</div>
+  </div>
+
+  <div class="disclaimer">僅供參考，非投資建議。資料每日盤後自動更新。</div>
+
+<script>
+let DATA = null;
+let mode = "long";
+let sortKey = "total_score";
+let sortDir = -1; // -1 desc, 1 asc
+
+async function load() {
+  const res = await fetch("data/latest.json?_=" + Date.now());
+  DATA = await res.json();
+  document.getElementById("meta").textContent =
+    `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`;
+  populateIndustries();
+  render();
+}
+
+function populateIndustries() {
+  const set = new Set(Object.values(DATA.stocks).map(s => s.industry).filter(Boolean));
+  const sel = document.getElementById("industry-filter");
+  [...set].sort().forEach(ind => {
+    const opt = document.createElement("option");
+    opt.value = ind; opt.textContent = ind;
+    sel.appendChild(opt);
+  });
+}
+
+function currentRows() {
+  const raw = DATA[mode] || [];
+  const industry = document.getElementById("industry-filter").value;
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  return raw
+    .map(r => ({ ...r, name: DATA.stocks[r.stock_id]?.name || "", industry: DATA.stocks[r.stock_id]?.industry || "" }))
+    .filter(r => !industry || r.industry === industry)
+    .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+}
+
+function flagsHtml(r) {
+  let out = "";
+  if (r.gap_signal) out += `<span class="tag gap">${r.gap_signal}</span>`;
+  if (r.liquidity_trap) out += `<span class="tag trap">${mode === "long" ? "流動性陷阱" : "假突破陷阱"}</span>`;
+  if (r.neckline_recovery) out += `<span class="tag recovery">${mode === "long" ? "跌破站回" : "突破跌回"}</span>`;
+  return out;
+}
+
+function render() {
+  let rows = currentRows();
+  rows.sort((a, b) => {
+    let va = a[sortKey], vb = b[sortKey];
+    if (va == null) va = sortDir === 1 ? Infinity : -Infinity;
+    if (vb == null) vb = sortDir === 1 ? Infinity : -Infinity;
+    if (typeof va === "string") return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+  document.getElementById("empty").style.display = rows.length ? "none" : "block";
+
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.stock_id}</td>
+      <td>${r.name}</td>
+      <td>${r.industry}</td>
+      <td>${r.close ?? ""}</td>
+      <td class="score">${r.total_score ?? ""}</td>
+      <td>${r.neckline_score ?? ""}</td>
+      <td>${r.ma_score ?? ""}</td>
+      <td>${r.neckline_source ?? ""}${r.neckline_age_mark ? " [" + r.neckline_age_mark + "]" : ""}</td>
+      <td>${r.neckline_dist_pct != null ? r.neckline_dist_pct + "%" : ""}</td>
+      <td>${flagsHtml(r)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.querySelectorAll("th").forEach(th => {
+    th.classList.remove("sorted");
+    th.removeAttribute("data-dir");
+    if (th.dataset.key === sortKey) {
+      th.classList.add("sorted");
+      th.setAttribute("data-dir", sortDir === 1 ? "▲" : "▼");
+    }
+  });
+}
+
+document.getElementById("btn-long").addEventListener("click", () => {
+  mode = "long";
+  document.getElementById("btn-long").classList.add("active");
+  document.getElementById("btn-short").classList.remove("active");
+  render();
+});
+document.getElementById("btn-short").addEventListener("click", () => {
+  mode = "short";
+  document.getElementById("btn-short").classList.add("active");
+  document.getElementById("btn-long").classList.remove("active");
+  render();
+});
+document.getElementById("industry-filter").addEventListener("change", render);
+document.getElementById("search").addEventListener("input", render);
+document.querySelectorAll("th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    if (key === sortKey) sortDir *= -1;
+    else { sortKey = key; sortDir = -1; }
+    render();
+  });
+});
+
+load();
+</script>
+</body>
+</html>
