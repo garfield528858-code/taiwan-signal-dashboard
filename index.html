@@ -74,6 +74,12 @@
   }
   tr.dual-board { background: rgba(255,214,10,0.10); }
   .board-note { color: var(--muted); font-size: 0.8rem; margin: 4px 0 12px; }
+  select[multiple] { min-width: 160px; height: 90px; }
+  tr.group-header td {
+    background: var(--card); font-weight: 700; color: var(--accent);
+    position: sticky; top: 33px;
+  }
+  label.inline-check { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -88,9 +94,12 @@
     <div class="toggle">
       <button id="btn-support" class="active">支撐榜（回檔佈局）</button>
       <button id="btn-momentum">動能榜（強勢動能）</button>
+      <button id="btn-groups">族群強度（主流族群）</button>
     </div>
     <select id="industry-filter"><option value="">全部產業</option></select>
+    <select id="group-filter" multiple title="Ctrl/Cmd+點選可複選"></select>
     <input type="text" id="search" placeholder="搜尋代號或名稱...">
+    <label class="inline-check"><input type="checkbox" id="group-by-toggle"> 依族群分組顯示</label>
   </div>
   <div class="board-note" id="board-note"></div>
 
@@ -135,6 +144,7 @@
               <th data-key="stock_id">代號</th>
               <th data-key="name">名稱</th>
               <th data-key="industry">產業</th>
+              <th data-key="group">族群</th>
               <th data-key="close">收盤</th>
               <th data-key="total_score">總分</th>
               <th data-key="neckline_score">頸線分</th>
@@ -159,6 +169,7 @@
             <th data-key="stock_id">代號</th>
             <th data-key="name">名稱</th>
             <th data-key="industry">產業</th>
+            <th data-key="group">族群</th>
             <th data-key="close">收盤</th>
             <th data-key="momentum_score">動能分</th>
             <th data-key="rs_score">RS分</th>
@@ -171,6 +182,31 @@
         <tbody id="tbody-momentum"></tbody>
       </table>
       <div id="empty-momentum" style="display:none">沒有符合條件的個股</div>
+    </div>
+  </div>
+
+  <div class="main-col" id="groups-view" style="display:none">
+    <div class="table-wrap">
+      <table id="tbl-groups">
+        <thead>
+          <tr>
+            <th data-key="group">族群</th>
+            <th data-key="n_stocks">檔數</th>
+            <th data-key="avg_pct_change">平均漲跌%</th>
+            <th data-key="turnover_share_pct">成交值佔股池%</th>
+            <th data-key="turnover_share_change_pp">比重日變化pp</th>
+            <th data-key="pct_up">上漲家數比%</th>
+            <th data-key="n_alert">上榜數</th>
+            <th data-key="leading_score">主流分</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-groups"></tbody>
+      </table>
+      <div id="empty-groups" style="display:none">沒有符合條件的族群</div>
+    </div>
+    <div class="board-note">
+      「成交值佔股池%」是佔自選股池總成交值的比重，不是全市場大盤佔比。主流分＝平均漲跌幅/成交值佔比日變化/
+      上漲家數比/上榜數，四項各自百分位排名後平均，權重尚未回測校準，僅供參考。
     </div>
   </div>
 
@@ -187,6 +223,8 @@ let sortKey = "total_score";
 let sortDir = -1; // -1 desc, 1 asc
 let sortKeyMomentum = "momentum_score";
 let sortDirMomentum = -1;
+let sortKeyGroups = "leading_score";
+let sortDirGroups = -1;
 let maAndOr = "AND";
 
 async function load() {
@@ -195,6 +233,7 @@ async function load() {
   document.getElementById("meta").textContent =
     `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`;
   populateIndustries();
+  populateGroups();
   updateBoardNote();
   render();
 }
@@ -219,6 +258,15 @@ function populateIndustries() {
   });
 }
 
+function populateGroups() {
+  const sel = document.getElementById("group-filter");
+  (DATA.all_group_names || []).forEach(g => {
+    const opt = document.createElement("option");
+    opt.value = g; opt.textContent = g;
+    sel.appendChild(opt);
+  });
+}
+
 function checkedValues(selector) {
   return [...document.querySelectorAll(selector)].filter(el => el.checked).map(el => el.value);
 }
@@ -234,6 +282,15 @@ function necklineFilterPass(r, selected) {
   return selected.some(key => !!r[key]);
 }
 
+function groupFilterPass(r, selected) {
+  if (!selected.length) return true;
+  return selected.some(g => (r.all_groups || []).includes(g));
+}
+
+function selectedGroups() {
+  return [...document.getElementById("group-filter").selectedOptions].map(o => o.value);
+}
+
 function currentRows() {
   const raw = DATA[mode] || [];
   const industry = document.getElementById("industry-filter").value;
@@ -241,27 +298,39 @@ function currentRows() {
   const maSelected = checkedValues(".ma-filter");
   const necklineSelected = checkedValues(".neckline-filter");
   const trapOnly = document.getElementById("trap-filter").checked;
+  const groupSelected = selectedGroups();
   return raw
     .map(r => ({ ...r, name: DATA.stocks[r.stock_id]?.name || "", industry: DATA.stocks[r.stock_id]?.industry || "",
+                 group: DATA.stocks[r.stock_id]?.group || "未分類", all_groups: DATA.stocks[r.stock_id]?.all_groups || [],
                  holder_tiers: DATA.stocks[r.stock_id]?.holder_increase_tiers || [],
                  holder_decrease_tiers: DATA.stocks[r.stock_id]?.holder_decrease_tiers || [] }))
     .filter(r => !industry || r.industry === industry)
     .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
     .filter(r => maFilterPass(r, maSelected))
     .filter(r => necklineFilterPass(r, necklineSelected))
-    .filter(r => !trapOnly || r.liquidity_trap);
+    .filter(r => !trapOnly || r.liquidity_trap)
+    .filter(r => groupFilterPass(r, groupSelected));
 }
 
 function momentumRows() {
   const raw = DATA[mode === "long" ? "momentum_long" : "momentum_short"] || [];
   const industry = document.getElementById("industry-filter").value;
   const q = document.getElementById("search").value.trim().toLowerCase();
+  const groupSelected = selectedGroups();
   return raw
     .map(r => ({ ...r, name: DATA.stocks[r.stock_id]?.name || "", industry: DATA.stocks[r.stock_id]?.industry || "",
+                 group: DATA.stocks[r.stock_id]?.group || "未分類", all_groups: DATA.stocks[r.stock_id]?.all_groups || [],
                  holder_tiers: DATA.stocks[r.stock_id]?.holder_increase_tiers || [],
                  holder_decrease_tiers: DATA.stocks[r.stock_id]?.holder_decrease_tiers || [] }))
     .filter(r => !industry || r.industry === industry)
-    .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+    .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+    .filter(r => groupFilterPass(r, groupSelected));
+}
+
+function groupsBoardRows() {
+  const raw = DATA[mode === "long" ? "groups_long" : "groups_short"] || [];
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  return raw.filter(r => !q || r.group.toLowerCase().includes(q));
 }
 
 function flagsHtml(r) {
@@ -309,6 +378,26 @@ function markSortedHeaders(tableSel, key, dir) {
   });
 }
 
+function withGroupHeaders(rows, colSpan) {
+  if (!document.getElementById("group-by-toggle").checked) {
+    return rows.map(r => ({ row: r }));
+  }
+  const byGroup = {};
+  for (const r of rows) {
+    const g = r.group || "未分類";
+    (byGroup[g] = byGroup[g] || []).push(r);
+  }
+  const groupNames = Object.keys(byGroup).sort(
+    (a, b) => byGroup[b].length - byGroup[a].length || a.localeCompare(b)
+  );
+  const out = [];
+  for (const g of groupNames) {
+    out.push({ header: true, group: g, count: byGroup[g].length, colSpan });
+    for (const r of byGroup[g]) out.push({ row: r });
+  }
+  return out;
+}
+
 function renderSupport() {
   const rows = sortRows(currentRows(), sortKey, sortDir);
   const dual = dualBoardSet();
@@ -316,13 +405,22 @@ function renderSupport() {
   tbody.innerHTML = "";
   document.getElementById("empty").style.display = rows.length ? "none" : "block";
 
-  for (const r of rows) {
+  for (const item of withGroupHeaders(rows, 11)) {
+    if (item.header) {
+      const tr = document.createElement("tr");
+      tr.className = "group-header";
+      tr.innerHTML = `<td colspan="${item.colSpan}">${item.group}（${item.count}檔）</td>`;
+      tbody.appendChild(tr);
+      continue;
+    }
+    const r = item.row;
     const tr = document.createElement("tr");
     if (dual.has(r.stock_id)) tr.classList.add("dual-board");
     tr.innerHTML = `
       <td>${r.stock_id}</td>
       <td>${r.name}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
       <td>${r.industry}</td>
+      <td>${r.group}</td>
       <td>${r.close ?? ""}</td>
       <td class="score">${r.total_score ?? ""}</td>
       <td>${r.neckline_score ?? ""}</td>
@@ -343,13 +441,22 @@ function renderMomentum() {
   tbody.innerHTML = "";
   document.getElementById("empty-momentum").style.display = rows.length ? "none" : "block";
 
-  for (const r of rows) {
+  for (const item of withGroupHeaders(rows, 11)) {
+    if (item.header) {
+      const tr = document.createElement("tr");
+      tr.className = "group-header";
+      tr.innerHTML = `<td colspan="${item.colSpan}">${item.group}（${item.count}檔）</td>`;
+      tbody.appendChild(tr);
+      continue;
+    }
+    const r = item.row;
     const tr = document.createElement("tr");
     if (dual.has(r.stock_id)) tr.classList.add("dual-board");
     tr.innerHTML = `
       <td>${r.stock_id}</td>
       <td>${r.name}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
       <td>${r.industry}</td>
+      <td>${r.group}</td>
       <td>${r.close ?? ""}</td>
       <td class="score">${r.momentum_score ?? ""}</td>
       <td>${r.rs_score ?? ""}</td>
@@ -363,9 +470,33 @@ function renderMomentum() {
   markSortedHeaders("#tbl-momentum", sortKeyMomentum, sortDirMomentum);
 }
 
+function renderGroups() {
+  const rows = sortRows(groupsBoardRows(), sortKeyGroups, sortDirGroups);
+  const tbody = document.getElementById("tbody-groups");
+  tbody.innerHTML = "";
+  document.getElementById("empty-groups").style.display = rows.length ? "none" : "block";
+
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.group}</td>
+      <td>${r.n_stocks}</td>
+      <td>${r.avg_pct_change}</td>
+      <td>${r.turnover_share_pct}</td>
+      <td>${r.turnover_share_change_pp}</td>
+      <td>${r.pct_up}</td>
+      <td>${r.n_alert}</td>
+      <td class="score">${r.leading_score}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  markSortedHeaders("#tbl-groups", sortKeyGroups, sortDirGroups);
+}
+
 function render() {
   if (board === "support") renderSupport();
-  else renderMomentum();
+  else if (board === "momentum") renderMomentum();
+  else renderGroups();
 }
 
 document.getElementById("btn-long").addEventListener("click", () => {
@@ -382,24 +513,25 @@ document.getElementById("btn-short").addEventListener("click", () => {
   updateBoardNote();
   render();
 });
-document.getElementById("btn-support").addEventListener("click", () => {
-  board = "support";
-  document.getElementById("btn-support").classList.add("active");
-  document.getElementById("btn-momentum").classList.remove("active");
-  document.getElementById("support-view").style.display = "";
-  document.getElementById("momentum-view").style.display = "none";
+function switchBoard(newBoard) {
+  board = newBoard;
+  const map = { support: "btn-support", momentum: "btn-momentum", groups: "btn-groups" };
+  const views = { support: "support-view", momentum: "momentum-view", groups: "groups-view" };
+  Object.entries(map).forEach(([b, btnId]) => {
+    document.getElementById(btnId).classList.toggle("active", b === newBoard);
+  });
+  Object.entries(views).forEach(([b, viewId]) => {
+    document.getElementById(viewId).style.display = (b === newBoard) ? "" : "none";
+  });
   render();
-});
-document.getElementById("btn-momentum").addEventListener("click", () => {
-  board = "momentum";
-  document.getElementById("btn-momentum").classList.add("active");
-  document.getElementById("btn-support").classList.remove("active");
-  document.getElementById("support-view").style.display = "none";
-  document.getElementById("momentum-view").style.display = "";
-  render();
-});
+}
+document.getElementById("btn-support").addEventListener("click", () => switchBoard("support"));
+document.getElementById("btn-momentum").addEventListener("click", () => switchBoard("momentum"));
+document.getElementById("btn-groups").addEventListener("click", () => switchBoard("groups"));
 document.getElementById("industry-filter").addEventListener("change", render);
 document.getElementById("search").addEventListener("input", render);
+document.getElementById("group-filter").addEventListener("change", render);
+document.getElementById("group-by-toggle").addEventListener("change", render);
 
 document.querySelectorAll(".ma-filter, .neckline-filter").forEach(cb => {
   cb.addEventListener("change", render);
@@ -420,6 +552,8 @@ document.getElementById("filter-reset").addEventListener("click", () => {
   document.getElementById("trap-filter").checked = false;
   document.getElementById("industry-filter").value = "";
   document.getElementById("search").value = "";
+  [...document.getElementById("group-filter").options].forEach(o => o.selected = false);
+  document.getElementById("group-by-toggle").checked = false;
   maAndOr = "AND";
   document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.toggle("active", b.dataset.val === "AND"));
   render();
@@ -437,6 +571,14 @@ document.querySelectorAll("#tbl-momentum th[data-key]").forEach(th => {
     const key = th.dataset.key;
     if (key === sortKeyMomentum) sortDirMomentum *= -1;
     else { sortKeyMomentum = key; sortDirMomentum = -1; }
+    render();
+  });
+});
+document.querySelectorAll("#tbl-groups th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    if (key === sortKeyGroups) sortDirGroups *= -1;
+    else { sortKeyGroups = key; sortDirGroups = -1; }
     render();
   });
 });
