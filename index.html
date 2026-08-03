@@ -46,6 +46,34 @@
   .score { font-weight: 600; }
   .disclaimer { color: var(--muted); font-size: 0.8rem; margin-top: 16px; }
   #empty { padding: 30px; text-align: center; color: var(--muted); }
+
+  .layout { display: flex; gap: 16px; align-items: flex-start; }
+  .filter-panel {
+    flex: 0 0 240px; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; background: var(--card); font-size: 0.85rem;
+  }
+  .filter-panel h3 { font-size: 0.9rem; margin: 0 0 8px; }
+  .filter-group { margin-bottom: 16px; }
+  .filter-group label { display: flex; align-items: center; gap: 6px; padding: 3px 0; cursor: pointer; }
+  .filter-group .group-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .mini-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; font-size: 0.75rem; }
+  .mini-toggle button { padding: 2px 8px; border: none; background: var(--card); color: var(--muted); cursor: pointer; }
+  .mini-toggle button.active { background: var(--accent); color: #fff; }
+  .filter-reset { width: 100%; margin-top: 4px; padding: 6px; border-radius: 6px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); cursor: pointer; font-size: 0.8rem; }
+  .main-col { flex: 1; min-width: 0; }
+  .holder-tag {
+    display: inline-block; padding: 0 5px; margin-left: 4px; border-radius: 5px;
+    border: 1px solid #ff9500; color: #ff9500; font-size: 0.7rem; font-weight: 600; line-height: 1.5;
+  }
+  .holder-tag.bear { border-color: #34c759; color: #34c759; }
+  .tag.mtag { background: rgba(255,59,48,0.16); color: #ff3b30; }
+  .dual-badge {
+    display: inline-block; padding: 0 5px; margin-left: 4px; border-radius: 5px;
+    background: #ffd60a; color: #1a1a1a; font-size: 0.7rem; font-weight: 700; line-height: 1.5;
+  }
+  tr.dual-board { background: rgba(255,214,10,0.10); }
+  .board-note { color: var(--muted); font-size: 0.8rem; margin: 4px 0 12px; }
 </style>
 </head>
 <body>
@@ -57,38 +85,109 @@
       <button id="btn-long" class="active">多方（做多）</button>
       <button id="btn-short">空方（做空）</button>
     </div>
+    <div class="toggle">
+      <button id="btn-support" class="active">支撐榜（回檔佈局）</button>
+      <button id="btn-momentum">動能榜（強勢動能）</button>
+    </div>
     <select id="industry-filter"><option value="">全部產業</option></select>
     <input type="text" id="search" placeholder="搜尋代號或名稱...">
   </div>
+  <div class="board-note" id="board-note"></div>
 
-  <div class="table-wrap">
-    <table id="tbl">
-      <thead>
-        <tr>
-          <th data-key="stock_id">代號</th>
-          <th data-key="name">名稱</th>
-          <th data-key="industry">產業</th>
-          <th data-key="close">收盤</th>
-          <th data-key="total_score">總分</th>
-          <th data-key="neckline_score">頸線分</th>
-          <th data-key="ma_score">均線分</th>
-          <th data-key="neckline_source">頸線來源</th>
-          <th data-key="neckline_dist_pct">距現價%</th>
-          <th data-key="flags">標記</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-    <div id="empty" style="display:none">沒有符合條件的個股</div>
+  <div class="layout" id="support-view">
+    <div class="filter-panel">
+      <div class="filter-group">
+        <div class="group-head">
+          <h3>均線篩選</h3>
+          <div class="mini-toggle" id="ma-and-or">
+            <button data-val="AND" class="active">AND</button>
+            <button data-val="OR">OR</button>
+          </div>
+        </div>
+        <label><input type="checkbox" class="ma-filter" value="above_10ma"> 在10MA之上</label>
+        <label><input type="checkbox" class="ma-filter" value="above_20ma"> 在20MA之上</label>
+        <label><input type="checkbox" class="ma-filter" value="above_60ma"> 在60MA之上</label>
+        <label><input type="checkbox" class="ma-filter" value="above_120ma"> 在120MA之上</label>
+        <label><input type="checkbox" class="ma-filter" value="above_240ma"> 在240MA之上</label>
+        <label><input type="checkbox" class="ma-filter" value="gap_cross_5ma"> 跳空站上5MA</label>
+        <label><input type="checkbox" class="ma-filter" value="ma_ge2"> 站上至少2條均線</label>
+      </div>
+      <div class="filter-group">
+        <h3>頸線篩選（符合任一項）</h3>
+        <label><input type="checkbox" class="neckline-filter" value="near_daily_neckline"> 接近日K頸線</label>
+        <label><input type="checkbox" class="neckline-filter" value="near_weekly_neckline"> 接近週K頸線</label>
+        <label><input type="checkbox" class="neckline-filter" value="near_prior_high"> 接近重要前高區間</label>
+        <label><input type="checkbox" class="neckline-filter" value="near_volume_peak"> 接近籌碼峰</label>
+        <label><input type="checkbox" class="neckline-filter" value="neckline_confluence"> 頸線共振</label>
+      </div>
+      <div class="filter-group">
+        <h3>流動性陷阱</h3>
+        <label><input type="checkbox" id="trap-filter"> 只顯示流動性陷阱</label>
+      </div>
+      <button class="filter-reset" id="filter-reset">清除所有篩選</button>
+    </div>
+
+    <div class="main-col">
+      <div class="table-wrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th data-key="stock_id">代號</th>
+              <th data-key="name">名稱</th>
+              <th data-key="industry">產業</th>
+              <th data-key="close">收盤</th>
+              <th data-key="total_score">總分</th>
+              <th data-key="neckline_score">頸線分</th>
+              <th data-key="ma_score">均線分</th>
+              <th data-key="neckline_source">頸線來源</th>
+              <th data-key="neckline_dist_pct">距現價%</th>
+              <th data-key="flags">標記</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div id="empty" style="display:none">沒有符合條件的個股</div>
+      </div>
+    </div>
   </div>
 
-  <div class="disclaimer">僅供參考，非投資建議。資料每日盤後自動更新。</div>
+  <div class="main-col" id="momentum-view" style="display:none">
+    <div class="table-wrap">
+      <table id="tbl-momentum">
+        <thead>
+          <tr>
+            <th data-key="stock_id">代號</th>
+            <th data-key="name">名稱</th>
+            <th data-key="industry">產業</th>
+            <th data-key="close">收盤</th>
+            <th data-key="momentum_score">動能分</th>
+            <th data-key="rs_score">RS分</th>
+            <th data-key="dist_to_52w_extreme_pct">距52週極值%</th>
+            <th data-key="ma_structure_score">均線分</th>
+            <th data-key="volume_score">量能分</th>
+            <th data-key="flags">標記</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-momentum"></tbody>
+      </table>
+      <div id="empty-momentum" style="display:none">沒有符合條件的個股</div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    僅供參考，非投資建議。資料每日盤後自動更新。<br>
+    動能榜為暫定版：四因子權重與訊號門檻尚未回測校準，動能股停損邏輯（跌破10MA/平台就該走）跟支撐股不同，請勿套用同一套持股心態。
+  </div>
 
 <script>
 let DATA = null;
 let mode = "long";
+let board = "support";
 let sortKey = "total_score";
 let sortDir = -1; // -1 desc, 1 asc
+let sortKeyMomentum = "momentum_score";
+let sortDirMomentum = -1;
+let maAndOr = "AND";
 
 async function load() {
   const res = await fetch("data/latest.json?_=" + Date.now());
@@ -96,7 +195,18 @@ async function load() {
   document.getElementById("meta").textContent =
     `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`;
   populateIndustries();
+  updateBoardNote();
   render();
+}
+
+function dualBoardSet() {
+  return new Set((DATA.dual_board && DATA.dual_board[mode]) || []);
+}
+
+function updateBoardNote() {
+  const n = dualBoardSet().size;
+  document.getElementById("board-note").textContent =
+    `雙榜交集（支撐軌警示 + 動能軌RS≥${DATA.rs_strong_percentile}，最強候選，兩榜都會黃底標示）：${n} 檔`;
 }
 
 function populateIndustries() {
@@ -109,12 +219,47 @@ function populateIndustries() {
   });
 }
 
+function checkedValues(selector) {
+  return [...document.querySelectorAll(selector)].filter(el => el.checked).map(el => el.value);
+}
+
+function maFilterPass(r, selected) {
+  if (!selected.length) return true;
+  const checks = selected.map(key => key === "ma_ge2" ? r.ma_above_count >= 2 : !!r[key]);
+  return maAndOr === "AND" ? checks.every(Boolean) : checks.some(Boolean);
+}
+
+function necklineFilterPass(r, selected) {
+  if (!selected.length) return true;
+  return selected.some(key => !!r[key]);
+}
+
 function currentRows() {
   const raw = DATA[mode] || [];
   const industry = document.getElementById("industry-filter").value;
   const q = document.getElementById("search").value.trim().toLowerCase();
+  const maSelected = checkedValues(".ma-filter");
+  const necklineSelected = checkedValues(".neckline-filter");
+  const trapOnly = document.getElementById("trap-filter").checked;
   return raw
-    .map(r => ({ ...r, name: DATA.stocks[r.stock_id]?.name || "", industry: DATA.stocks[r.stock_id]?.industry || "" }))
+    .map(r => ({ ...r, name: DATA.stocks[r.stock_id]?.name || "", industry: DATA.stocks[r.stock_id]?.industry || "",
+                 holder_tiers: DATA.stocks[r.stock_id]?.holder_increase_tiers || [],
+                 holder_decrease_tiers: DATA.stocks[r.stock_id]?.holder_decrease_tiers || [] }))
+    .filter(r => !industry || r.industry === industry)
+    .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+    .filter(r => maFilterPass(r, maSelected))
+    .filter(r => necklineFilterPass(r, necklineSelected))
+    .filter(r => !trapOnly || r.liquidity_trap);
+}
+
+function momentumRows() {
+  const raw = DATA[mode === "long" ? "momentum_long" : "momentum_short"] || [];
+  const industry = document.getElementById("industry-filter").value;
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  return raw
+    .map(r => ({ ...r, name: DATA.stocks[r.stock_id]?.name || "", industry: DATA.stocks[r.stock_id]?.industry || "",
+                 holder_tiers: DATA.stocks[r.stock_id]?.holder_increase_tiers || [],
+                 holder_decrease_tiers: DATA.stocks[r.stock_id]?.holder_decrease_tiers || [] }))
     .filter(r => !industry || r.industry === industry)
     .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
 }
@@ -127,25 +272,56 @@ function flagsHtml(r) {
   return out;
 }
 
-function render() {
-  let rows = currentRows();
-  rows.sort((a, b) => {
-    let va = a[sortKey], vb = b[sortKey];
-    if (va == null) va = sortDir === 1 ? Infinity : -Infinity;
-    if (vb == null) vb = sortDir === 1 ? Infinity : -Infinity;
-    if (typeof va === "string") return va.localeCompare(vb) * sortDir;
-    return (va - vb) * sortDir;
-  });
+function momentumFlagsHtml(r) {
+  let out = "";
+  if (r.rs_strong) out += `<span class="tag mtag">RS≥${DATA.rs_strong_percentile}</span>`;
+  if (r.is_52w_extreme) out += `<span class="tag mtag">${mode === "long" ? "52週新高" : "52週新低"}</span>`;
+  if (r.ma_bullish_alignment) out += `<span class="tag mtag">${mode === "long" ? "多頭排列" : "空頭排列"}</span>`;
+  if (r.platform_breakout) out += `<span class="tag mtag">平台突破</span>`;
+  return out;
+}
 
+function holderTagsHtml(r) {
+  const bull = (r.holder_tiers || []).map(t => `<span class="holder-tag">${t}</span>`).join("");
+  const bear = (r.holder_decrease_tiers || []).map(t => `<span class="holder-tag bear">${t}</span>`).join("");
+  return bull + bear;
+}
+
+function sortRows(rows, key, dir) {
+  rows.sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (va == null) va = dir === 1 ? Infinity : -Infinity;
+    if (vb == null) vb = dir === 1 ? Infinity : -Infinity;
+    if (typeof va === "string") return va.localeCompare(vb) * dir;
+    return (va - vb) * dir;
+  });
+  return rows;
+}
+
+function markSortedHeaders(tableSel, key, dir) {
+  document.querySelectorAll(`${tableSel} th`).forEach(th => {
+    th.classList.remove("sorted");
+    th.removeAttribute("data-dir");
+    if (th.dataset.key === key) {
+      th.classList.add("sorted");
+      th.setAttribute("data-dir", dir === 1 ? "▲" : "▼");
+    }
+  });
+}
+
+function renderSupport() {
+  const rows = sortRows(currentRows(), sortKey, sortDir);
+  const dual = dualBoardSet();
   const tbody = document.getElementById("tbody");
   tbody.innerHTML = "";
   document.getElementById("empty").style.display = rows.length ? "none" : "block";
 
   for (const r of rows) {
     const tr = document.createElement("tr");
+    if (dual.has(r.stock_id)) tr.classList.add("dual-board");
     tr.innerHTML = `
       <td>${r.stock_id}</td>
-      <td>${r.name}</td>
+      <td>${r.name}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
       <td>${r.industry}</td>
       <td>${r.close ?? ""}</td>
       <td class="score">${r.total_score ?? ""}</td>
@@ -157,36 +333,110 @@ function render() {
     `;
     tbody.appendChild(tr);
   }
+  markSortedHeaders("#tbl", sortKey, sortDir);
+}
 
-  document.querySelectorAll("th").forEach(th => {
-    th.classList.remove("sorted");
-    th.removeAttribute("data-dir");
-    if (th.dataset.key === sortKey) {
-      th.classList.add("sorted");
-      th.setAttribute("data-dir", sortDir === 1 ? "▲" : "▼");
-    }
-  });
+function renderMomentum() {
+  const rows = sortRows(momentumRows(), sortKeyMomentum, sortDirMomentum);
+  const dual = dualBoardSet();
+  const tbody = document.getElementById("tbody-momentum");
+  tbody.innerHTML = "";
+  document.getElementById("empty-momentum").style.display = rows.length ? "none" : "block";
+
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    if (dual.has(r.stock_id)) tr.classList.add("dual-board");
+    tr.innerHTML = `
+      <td>${r.stock_id}</td>
+      <td>${r.name}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
+      <td>${r.industry}</td>
+      <td>${r.close ?? ""}</td>
+      <td class="score">${r.momentum_score ?? ""}</td>
+      <td>${r.rs_score ?? ""}</td>
+      <td>${r.dist_to_52w_extreme_pct != null ? r.dist_to_52w_extreme_pct + "%" : ""}</td>
+      <td>${r.ma_structure_score ?? ""}</td>
+      <td>${r.volume_score ?? ""}</td>
+      <td>${momentumFlagsHtml(r)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  markSortedHeaders("#tbl-momentum", sortKeyMomentum, sortDirMomentum);
+}
+
+function render() {
+  if (board === "support") renderSupport();
+  else renderMomentum();
 }
 
 document.getElementById("btn-long").addEventListener("click", () => {
   mode = "long";
   document.getElementById("btn-long").classList.add("active");
   document.getElementById("btn-short").classList.remove("active");
+  updateBoardNote();
   render();
 });
 document.getElementById("btn-short").addEventListener("click", () => {
   mode = "short";
   document.getElementById("btn-short").classList.add("active");
   document.getElementById("btn-long").classList.remove("active");
+  updateBoardNote();
+  render();
+});
+document.getElementById("btn-support").addEventListener("click", () => {
+  board = "support";
+  document.getElementById("btn-support").classList.add("active");
+  document.getElementById("btn-momentum").classList.remove("active");
+  document.getElementById("support-view").style.display = "";
+  document.getElementById("momentum-view").style.display = "none";
+  render();
+});
+document.getElementById("btn-momentum").addEventListener("click", () => {
+  board = "momentum";
+  document.getElementById("btn-momentum").classList.add("active");
+  document.getElementById("btn-support").classList.remove("active");
+  document.getElementById("support-view").style.display = "none";
+  document.getElementById("momentum-view").style.display = "";
   render();
 });
 document.getElementById("industry-filter").addEventListener("change", render);
 document.getElementById("search").addEventListener("input", render);
-document.querySelectorAll("th[data-key]").forEach(th => {
+
+document.querySelectorAll(".ma-filter, .neckline-filter").forEach(cb => {
+  cb.addEventListener("change", render);
+});
+document.getElementById("trap-filter").addEventListener("change", render);
+
+document.querySelectorAll("#ma-and-or button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    maAndOr = btn.dataset.val;
+    document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    render();
+  });
+});
+
+document.getElementById("filter-reset").addEventListener("click", () => {
+  document.querySelectorAll(".ma-filter, .neckline-filter").forEach(cb => cb.checked = false);
+  document.getElementById("trap-filter").checked = false;
+  document.getElementById("industry-filter").value = "";
+  document.getElementById("search").value = "";
+  maAndOr = "AND";
+  document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.toggle("active", b.dataset.val === "AND"));
+  render();
+});
+document.querySelectorAll("#tbl th[data-key]").forEach(th => {
   th.addEventListener("click", () => {
     const key = th.dataset.key;
     if (key === sortKey) sortDir *= -1;
     else { sortKey = key; sortDir = -1; }
+    render();
+  });
+});
+document.querySelectorAll("#tbl-momentum th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    if (key === sortKeyMomentum) sortDirMomentum *= -1;
+    else { sortKeyMomentum = key; sortDirMomentum = -1; }
     render();
   });
 });
