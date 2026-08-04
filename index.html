@@ -80,6 +80,14 @@
     position: sticky; top: 33px;
   }
   label.inline-check { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }
+  .disposition-mark { color: var(--up); font-weight: 700; margin-left: 4px; font-size: 0.85em; }
+  .subgroup-tag {
+    display: inline-block; padding: 0 5px; margin-left: 3px; border-radius: 5px;
+    background: rgba(128,128,128,0.18); color: var(--muted); font-size: 0.7rem;
+  }
+  .wrap-text { white-space: normal; max-width: 480px; }
+  .section-title { font-size: 1rem; margin: 18px 0 8px; }
+  .section-title:first-child { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -95,11 +103,22 @@
       <button id="btn-support" class="active">支撐榜（回檔佈局）</button>
       <button id="btn-momentum">動能榜（強勢動能）</button>
       <button id="btn-groups">族群強度（主流族群）</button>
+      <button id="btn-disposition">處置股專區</button>
     </div>
-    <select id="industry-filter"><option value="">全部產業</option></select>
-    <select id="group-filter" multiple title="Ctrl/Cmd+點選可複選"></select>
+    <select id="group-filter" multiple title="Ctrl/Cmd+點選可複選">
+      <option value="__all__" selected>[全部]</option>
+    </select>
     <input type="text" id="search" placeholder="搜尋代號或名稱...">
     <label class="inline-check"><input type="checkbox" id="group-by-toggle"> 依族群分組顯示</label>
+  </div>
+  <div class="controls" id="price-tier-group">
+    <span class="board-note" style="margin:0">價格區間：</span>
+    <label class="inline-check"><input type="checkbox" class="price-tier-filter" value="1"> 0~100</label>
+    <label class="inline-check"><input type="checkbox" class="price-tier-filter" value="2"> 101~200</label>
+    <label class="inline-check"><input type="checkbox" class="price-tier-filter" value="3"> 201~500</label>
+    <label class="inline-check"><input type="checkbox" class="price-tier-filter" value="4"> 501~800</label>
+    <label class="inline-check"><input type="checkbox" class="price-tier-filter" value="5"> 801~1000</label>
+    <label class="inline-check"><input type="checkbox" class="price-tier-filter" value="6"> 1000以上</label>
   </div>
   <div class="board-note" id="board-note"></div>
 
@@ -143,7 +162,6 @@
             <tr>
               <th data-key="stock_id">代號</th>
               <th data-key="name">名稱</th>
-              <th data-key="industry">產業</th>
               <th data-key="group">族群</th>
               <th data-key="close">收盤</th>
               <th data-key="total_score">總分</th>
@@ -168,7 +186,6 @@
           <tr>
             <th data-key="stock_id">代號</th>
             <th data-key="name">名稱</th>
-            <th data-key="industry">產業</th>
             <th data-key="group">族群</th>
             <th data-key="close">收盤</th>
             <th data-key="momentum_score">動能分</th>
@@ -210,6 +227,51 @@
     </div>
   </div>
 
+  <div class="main-col" id="disposition-view" style="display:none">
+    <h3 class="section-title">7.1 目前處置中（依出關日排序，即將出關者置頂）</h3>
+    <div class="table-wrap">
+      <table id="tbl-disp-current">
+        <thead>
+          <tr>
+            <th>代號</th><th>名稱</th><th>族群</th><th>總分</th><th>處置起日</th><th>處置迄日</th>
+            <th>出關倒數</th><th>撮合間隔</th><th class="wrap-text">原因</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-disp-current"></tbody>
+      </table>
+      <div id="empty-disp-current" style="display:none">目前沒有處於處置期間的個股。</div>
+    </div>
+
+    <h3 class="section-title">7.2 今日警示股中符合進入處置條件者</h3>
+    <div class="board-note">
+      定義：「今日警示股(支撐軌總分達門檻 或 動能軌RS強)」∩「證交所/櫃買中心官方公布的注意交易資訊清單」，
+      直接讀官方資料判定，不自行重算證交所的多層級公式（2026-08-04已與使用者確認）。
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-disp-approaching">
+        <thead>
+          <tr><th>代號</th><th>名稱</th><th>市場</th><th class="wrap-text">官方公布原因</th><th class="wrap-text">累計注意情形</th></tr>
+        </thead>
+        <tbody id="tbody-disp-approaching"></tbody>
+      </table>
+      <div id="empty-disp-approaching" style="display:none">今日沒有警示股符合進入處置條件。</div>
+    </div>
+
+    <h3 class="section-title">7.3 處置股評分排名</h3>
+    <div class="table-wrap">
+      <table id="tbl-disp-ranking">
+        <thead>
+          <tr>
+            <th>代號</th><th>名稱</th><th>族群</th><th>收盤</th><th>總分</th>
+            <th>頸線分</th><th>均線分</th><th>標記</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-disp-ranking"></tbody>
+      </table>
+      <div id="empty-disp-ranking" style="display:none">處置股目前沒有評分資料。</div>
+    </div>
+  </div>
+
   <div class="disclaimer">
     僅供參考，非投資建議。資料每日盤後自動更新。<br>
     動能榜為暫定版：四因子權重與訊號門檻尚未回測校準，動能股停損邏輯（跌破10MA/平台就該走）跟支撐股不同，請勿套用同一套持股心態。
@@ -232,7 +294,6 @@ async function load() {
   DATA = await res.json();
   document.getElementById("meta").textContent =
     `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`;
-  populateIndustries();
   populateGroups();
   updateBoardNote();
   render();
@@ -246,16 +307,6 @@ function updateBoardNote() {
   const n = dualBoardSet().size;
   document.getElementById("board-note").textContent =
     `雙榜交集（支撐軌警示 + 動能軌RS≥${DATA.rs_strong_percentile}，最強候選，兩榜都會黃底標示）：${n} 檔`;
-}
-
-function populateIndustries() {
-  const set = new Set(Object.values(DATA.stocks).map(s => s.industry).filter(Boolean));
-  const sel = document.getElementById("industry-filter");
-  [...set].sort().forEach(ind => {
-    const opt = document.createElement("option");
-    opt.value = ind; opt.textContent = ind;
-    sel.appendChild(opt);
-  });
 }
 
 function populateGroups() {
@@ -288,43 +339,53 @@ function groupFilterPass(r, selected) {
 }
 
 function selectedGroups() {
-  return [...document.getElementById("group-filter").selectedOptions].map(o => o.value);
+  return [...document.getElementById("group-filter").selectedOptions]
+    .map(o => o.value)
+    .filter(v => v !== "__all__");
+}
+
+function priceTierFilterPass(r, selected) {
+  if (!selected.length) return true;
+  return selected.includes(String(r.price_tier));
+}
+
+function commonRowFields(r) {
+  const meta = DATA.stocks[r.stock_id] || {};
+  return {
+    name: meta.name || "", group: meta.group || "未分類", all_groups: meta.all_groups || [],
+    holder_tiers: meta.holder_increase_tiers || [], holder_decrease_tiers: meta.holder_decrease_tiers || [],
+    is_disposition: !!meta.is_disposition,
+  };
 }
 
 function currentRows() {
   const raw = DATA[mode] || [];
-  const industry = document.getElementById("industry-filter").value;
   const q = document.getElementById("search").value.trim().toLowerCase();
   const maSelected = checkedValues(".ma-filter");
   const necklineSelected = checkedValues(".neckline-filter");
   const trapOnly = document.getElementById("trap-filter").checked;
   const groupSelected = selectedGroups();
+  const priceTierSelected = checkedValues(".price-tier-filter");
   return raw
-    .map(r => ({ ...r, name: DATA.stocks[r.stock_id]?.name || "", industry: DATA.stocks[r.stock_id]?.industry || "",
-                 group: DATA.stocks[r.stock_id]?.group || "未分類", all_groups: DATA.stocks[r.stock_id]?.all_groups || [],
-                 holder_tiers: DATA.stocks[r.stock_id]?.holder_increase_tiers || [],
-                 holder_decrease_tiers: DATA.stocks[r.stock_id]?.holder_decrease_tiers || [] }))
-    .filter(r => !industry || r.industry === industry)
+    .map(r => ({ ...r, ...commonRowFields(r) }))
     .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
     .filter(r => maFilterPass(r, maSelected))
     .filter(r => necklineFilterPass(r, necklineSelected))
     .filter(r => !trapOnly || r.liquidity_trap)
-    .filter(r => groupFilterPass(r, groupSelected));
+    .filter(r => groupFilterPass(r, groupSelected))
+    .filter(r => priceTierFilterPass(r, priceTierSelected));
 }
 
 function momentumRows() {
   const raw = DATA[mode === "long" ? "momentum_long" : "momentum_short"] || [];
-  const industry = document.getElementById("industry-filter").value;
   const q = document.getElementById("search").value.trim().toLowerCase();
   const groupSelected = selectedGroups();
+  const priceTierSelected = checkedValues(".price-tier-filter");
   return raw
-    .map(r => ({ ...r, name: DATA.stocks[r.stock_id]?.name || "", industry: DATA.stocks[r.stock_id]?.industry || "",
-                 group: DATA.stocks[r.stock_id]?.group || "未分類", all_groups: DATA.stocks[r.stock_id]?.all_groups || [],
-                 holder_tiers: DATA.stocks[r.stock_id]?.holder_increase_tiers || [],
-                 holder_decrease_tiers: DATA.stocks[r.stock_id]?.holder_decrease_tiers || [] }))
-    .filter(r => !industry || r.industry === industry)
+    .map(r => ({ ...r, ...commonRowFields(r) }))
     .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
-    .filter(r => groupFilterPass(r, groupSelected));
+    .filter(r => groupFilterPass(r, groupSelected))
+    .filter(r => priceTierFilterPass(r, priceTierSelected));
 }
 
 function groupsBoardRows() {
@@ -354,6 +415,10 @@ function holderTagsHtml(r) {
   const bull = (r.holder_tiers || []).map(t => `<span class="holder-tag">${t}</span>`).join("");
   const bear = (r.holder_decrease_tiers || []).map(t => `<span class="holder-tag bear">${t}</span>`).join("");
   return bull + bear;
+}
+
+function dispositionMarkHtml(r) {
+  return r.is_disposition ? '<span class="disposition-mark">[處置]</span>' : "";
 }
 
 function sortRows(rows, key, dir) {
@@ -405,7 +470,7 @@ function renderSupport() {
   tbody.innerHTML = "";
   document.getElementById("empty").style.display = rows.length ? "none" : "block";
 
-  for (const item of withGroupHeaders(rows, 11)) {
+  for (const item of withGroupHeaders(rows, 10)) {
     if (item.header) {
       const tr = document.createElement("tr");
       tr.className = "group-header";
@@ -418,8 +483,7 @@ function renderSupport() {
     if (dual.has(r.stock_id)) tr.classList.add("dual-board");
     tr.innerHTML = `
       <td>${r.stock_id}</td>
-      <td>${r.name}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
-      <td>${r.industry}</td>
+      <td>${r.name}${dispositionMarkHtml(r)}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
       <td>${r.group}</td>
       <td>${r.close ?? ""}</td>
       <td class="score">${r.total_score ?? ""}</td>
@@ -441,7 +505,7 @@ function renderMomentum() {
   tbody.innerHTML = "";
   document.getElementById("empty-momentum").style.display = rows.length ? "none" : "block";
 
-  for (const item of withGroupHeaders(rows, 11)) {
+  for (const item of withGroupHeaders(rows, 10)) {
     if (item.header) {
       const tr = document.createElement("tr");
       tr.className = "group-header";
@@ -454,8 +518,7 @@ function renderMomentum() {
     if (dual.has(r.stock_id)) tr.classList.add("dual-board");
     tr.innerHTML = `
       <td>${r.stock_id}</td>
-      <td>${r.name}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
-      <td>${r.industry}</td>
+      <td>${r.name}${dispositionMarkHtml(r)}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
       <td>${r.group}</td>
       <td>${r.close ?? ""}</td>
       <td class="score">${r.momentum_score ?? ""}</td>
@@ -493,10 +556,67 @@ function renderGroups() {
   markSortedHeaders("#tbl-groups", sortKeyGroups, sortDirGroups);
 }
 
+function renderDisposition() {
+  const disp = DATA.disposition || {};
+  const scoreMap = new Map(
+    ((mode === "long" ? disp.ranking_long : disp.ranking_short) || []).map(r => [r.stock_id, r.total_score])
+  );
+
+  const currentRows = disp.current_list || [];
+  const tbodyCur = document.getElementById("tbody-disp-current");
+  tbodyCur.innerHTML = "";
+  document.getElementById("empty-disp-current").style.display = currentRows.length ? "none" : "block";
+  for (const r of currentRows) {
+    const group = DATA.stocks[r.stock_id]?.group || "未分類";
+    const score = scoreMap.get(r.stock_id);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.stock_id}</td><td>${r.stock_name}</td><td>${group}</td>
+      <td class="score">${score ?? "無資料"}</td>
+      <td>${r.start_date ?? ""}</td><td>${r.end_date ?? ""}</td>
+      <td>${r.days_to_release != null ? r.days_to_release + "天" : ""}</td>
+      <td>${r.matching_interval_min != null ? r.matching_interval_min + "分" : ""}</td>
+      <td class="wrap-text">${r.reason ?? ""}</td>
+    `;
+    tbodyCur.appendChild(tr);
+  }
+
+  const approachRows = (mode === "long" ? disp.approaching_long : disp.approaching_short) || [];
+  const tbodyApp = document.getElementById("tbody-disp-approaching");
+  tbodyApp.innerHTML = "";
+  document.getElementById("empty-disp-approaching").style.display = approachRows.length ? "none" : "block";
+  for (const r of approachRows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.stock_id}</td><td>${r.stock_name}</td><td>${r.market}</td>
+      <td class="wrap-text">${r.reason ?? ""}</td><td class="wrap-text">${r.accumulation ?? ""}</td>
+    `;
+    tbodyApp.appendChild(tr);
+  }
+
+  const rankRows = [...((mode === "long" ? disp.ranking_long : disp.ranking_short) || [])]
+    .sort((a, b) => b.total_score - a.total_score);
+  const tbodyRank = document.getElementById("tbody-disp-ranking");
+  tbodyRank.innerHTML = "";
+  document.getElementById("empty-disp-ranking").style.display = rankRows.length ? "none" : "block";
+  for (const r of rankRows) {
+    const group = DATA.stocks[r.stock_id]?.group || "未分類";
+    const name = DATA.stocks[r.stock_id]?.name || "";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.stock_id}</td><td>${name}</td><td>${group}</td><td>${r.close ?? ""}</td>
+      <td class="score">${r.total_score ?? ""}</td><td>${r.neckline_score ?? ""}</td>
+      <td>${r.ma_score ?? ""}</td><td>${flagsHtml(r)}</td>
+    `;
+    tbodyRank.appendChild(tr);
+  }
+}
+
 function render() {
   if (board === "support") renderSupport();
   else if (board === "momentum") renderMomentum();
-  else renderGroups();
+  else if (board === "groups") renderGroups();
+  else renderDisposition();
 }
 
 document.getElementById("btn-long").addEventListener("click", () => {
@@ -515,8 +635,8 @@ document.getElementById("btn-short").addEventListener("click", () => {
 });
 function switchBoard(newBoard) {
   board = newBoard;
-  const map = { support: "btn-support", momentum: "btn-momentum", groups: "btn-groups" };
-  const views = { support: "support-view", momentum: "momentum-view", groups: "groups-view" };
+  const map = { support: "btn-support", momentum: "btn-momentum", groups: "btn-groups", disposition: "btn-disposition" };
+  const views = { support: "support-view", momentum: "momentum-view", groups: "groups-view", disposition: "disposition-view" };
   Object.entries(map).forEach(([b, btnId]) => {
     document.getElementById(btnId).classList.toggle("active", b === newBoard);
   });
@@ -528,12 +648,32 @@ function switchBoard(newBoard) {
 document.getElementById("btn-support").addEventListener("click", () => switchBoard("support"));
 document.getElementById("btn-momentum").addEventListener("click", () => switchBoard("momentum"));
 document.getElementById("btn-groups").addEventListener("click", () => switchBoard("groups"));
-document.getElementById("industry-filter").addEventListener("change", render);
+document.getElementById("btn-disposition").addEventListener("click", () => switchBoard("disposition"));
 document.getElementById("search").addEventListener("input", render);
-document.getElementById("group-filter").addEventListener("change", render);
+let prevGroupSelection = new Set(["__all__"]);
+document.getElementById("group-filter").addEventListener("change", () => {
+  const sel = document.getElementById("group-filter");
+  const current = new Set([...sel.selectedOptions].map(o => o.value));
+  const newlyAdded = [...current].filter(v => !prevGroupSelection.has(v));
+
+  if (newlyAdded.includes("__all__")) {
+    // 剛選了[全部] -> 清空其他，只留全部(回到不篩選狀態)
+    [...sel.options].forEach(o => o.selected = (o.value === "__all__"));
+  } else if (current.has("__all__") && newlyAdded.length > 0) {
+    // 全部原本選著、又勾了別的族群 -> 取消全部，改成只篩該族群
+    sel.querySelector('option[value="__all__"]').selected = false;
+  }
+  if (![...sel.selectedOptions].length) {
+    // 取消到剩空 -> 回退成[全部]，不要卡在完全沒選取的狀態
+    sel.querySelector('option[value="__all__"]').selected = true;
+  }
+
+  prevGroupSelection = new Set([...sel.selectedOptions].map(o => o.value));
+  render();
+});
 document.getElementById("group-by-toggle").addEventListener("change", render);
 
-document.querySelectorAll(".ma-filter, .neckline-filter").forEach(cb => {
+document.querySelectorAll(".ma-filter, .neckline-filter, .price-tier-filter").forEach(cb => {
   cb.addEventListener("change", render);
 });
 document.getElementById("trap-filter").addEventListener("change", render);
@@ -548,11 +688,11 @@ document.querySelectorAll("#ma-and-or button").forEach(btn => {
 });
 
 document.getElementById("filter-reset").addEventListener("click", () => {
-  document.querySelectorAll(".ma-filter, .neckline-filter").forEach(cb => cb.checked = false);
+  document.querySelectorAll(".ma-filter, .neckline-filter, .price-tier-filter").forEach(cb => cb.checked = false);
   document.getElementById("trap-filter").checked = false;
-  document.getElementById("industry-filter").value = "";
   document.getElementById("search").value = "";
-  [...document.getElementById("group-filter").options].forEach(o => o.selected = false);
+  [...document.getElementById("group-filter").options].forEach(o => o.selected = (o.value === "__all__"));
+  prevGroupSelection = new Set(["__all__"]);
   document.getElementById("group-by-toggle").checked = false;
   maAndOr = "AND";
   document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.toggle("active", b.dataset.val === "AND"));
