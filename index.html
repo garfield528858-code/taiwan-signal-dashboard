@@ -179,26 +179,41 @@
     </div>
   </div>
 
-  <div class="main-col" id="momentum-view" style="display:none">
-    <div class="table-wrap">
-      <table id="tbl-momentum">
-        <thead>
-          <tr>
-            <th data-key="stock_id">代號</th>
-            <th data-key="name">名稱</th>
-            <th data-key="group">族群</th>
-            <th data-key="close">收盤</th>
-            <th data-key="momentum_score">動能分</th>
-            <th data-key="rs_score">RS分</th>
-            <th data-key="dist_to_52w_extreme_pct">距52週極值%</th>
-            <th data-key="ma_structure_score">均線分</th>
-            <th data-key="volume_score">量能分</th>
-            <th data-key="flags">標記</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-momentum"></tbody>
-      </table>
-      <div id="empty-momentum" style="display:none">沒有符合條件的個股</div>
+  <div class="layout" id="momentum-view" style="display:none">
+    <div class="filter-panel">
+      <div class="filter-group">
+        <h3>動能篩選</h3>
+        <label><input type="checkbox" class="momentum-filter" value="rs_strong"> <span id="momentum-rs-label">RS強勢</span></label>
+        <label><input type="checkbox" class="momentum-filter" value="near_52w_extreme"> <span id="momentum-near52w-label">接近52週新高（≤3%）</span></label>
+        <label><input type="checkbox" class="momentum-filter" value="is_52w_extreme"> <span id="momentum-is52w-label">當日創52週新高</span></label>
+        <label><input type="checkbox" class="momentum-filter" value="ma_bullish_alignment"> <span id="momentum-ma-label">均線多頭排列</span></label>
+        <label><input type="checkbox" class="momentum-filter" value="platform_breakout"> 平台突破</label>
+        <label><input type="checkbox" class="momentum-filter" value="first_pullback"> 強勢股首次回測5/10MA</label>
+      </div>
+      <button class="filter-reset" id="momentum-filter-reset">清除所有篩選</button>
+    </div>
+
+    <div class="main-col">
+      <div class="table-wrap">
+        <table id="tbl-momentum">
+          <thead>
+            <tr>
+              <th data-key="stock_id">代號</th>
+              <th data-key="name">名稱</th>
+              <th data-key="group">族群</th>
+              <th data-key="close">收盤</th>
+              <th data-key="momentum_score">動能分</th>
+              <th data-key="rs_score">RS分</th>
+              <th data-key="dist_to_52w_extreme_pct">距52週極值%</th>
+              <th data-key="ma_structure_score">均線分</th>
+              <th data-key="volume_score">量能分</th>
+              <th data-key="flags">標記</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-momentum"></tbody>
+        </table>
+        <div id="empty-momentum" style="display:none">沒有符合條件的個股</div>
+      </div>
     </div>
   </div>
 
@@ -307,6 +322,13 @@ function updateBoardNote() {
   const n = dualBoardSet().size;
   document.getElementById("board-note").textContent =
     `雙榜交集（支撐軌警示 + 動能軌RS≥${DATA.rs_strong_percentile}，最強候選，兩榜都會黃底標示）：${n} 檔`;
+  document.getElementById("momentum-rs-label").textContent = `RS強勢（前${DATA.rs_strong_percentile}%）`;
+  document.getElementById("momentum-near52w-label").textContent =
+    mode === "long" ? "接近52週新高（≤3%）" : "接近52週新低（≤3%）";
+  document.getElementById("momentum-is52w-label").textContent =
+    mode === "long" ? "當日創52週新高" : "當日創52週新低";
+  document.getElementById("momentum-ma-label").textContent =
+    mode === "long" ? "均線多頭排列" : "均線空頭排列";
 }
 
 function populateGroups() {
@@ -376,16 +398,24 @@ function currentRows() {
     .filter(r => priceTierFilterPass(r, priceTierSelected));
 }
 
+function momentumFilterPass(r, selected) {
+  if (!selected.length) return true;
+  const checks = selected.map(key => key === "near_52w_extreme" ? r.dist_to_52w_extreme_pct <= 3 : !!r[key]);
+  return checks.every(Boolean);
+}
+
 function momentumRows() {
   const raw = DATA[mode === "long" ? "momentum_long" : "momentum_short"] || [];
   const q = document.getElementById("search").value.trim().toLowerCase();
   const groupSelected = selectedGroups();
   const priceTierSelected = checkedValues(".price-tier-filter");
+  const momentumSelected = checkedValues(".momentum-filter");
   return raw
     .map(r => ({ ...r, ...commonRowFields(r) }))
     .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
     .filter(r => groupFilterPass(r, groupSelected))
-    .filter(r => priceTierFilterPass(r, priceTierSelected));
+    .filter(r => priceTierFilterPass(r, priceTierSelected))
+    .filter(r => momentumFilterPass(r, momentumSelected));
 }
 
 function groupsBoardRows() {
@@ -408,6 +438,7 @@ function momentumFlagsHtml(r) {
   if (r.is_52w_extreme) out += `<span class="tag mtag">${mode === "long" ? "52週新高" : "52週新低"}</span>`;
   if (r.ma_bullish_alignment) out += `<span class="tag mtag">${mode === "long" ? "多頭排列" : "空頭排列"}</span>`;
   if (r.platform_breakout) out += `<span class="tag mtag">平台突破</span>`;
+  if (r.first_pullback) out += `<span class="tag mtag">首次回測5/10MA</span>`;
   return out;
 }
 
@@ -673,7 +704,7 @@ document.getElementById("group-filter").addEventListener("change", () => {
 });
 document.getElementById("group-by-toggle").addEventListener("change", render);
 
-document.querySelectorAll(".ma-filter, .neckline-filter, .price-tier-filter").forEach(cb => {
+document.querySelectorAll(".ma-filter, .neckline-filter, .price-tier-filter, .momentum-filter").forEach(cb => {
   cb.addEventListener("change", render);
 });
 document.getElementById("trap-filter").addEventListener("change", render);
@@ -696,6 +727,14 @@ document.getElementById("filter-reset").addEventListener("click", () => {
   document.getElementById("group-by-toggle").checked = false;
   maAndOr = "AND";
   document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.toggle("active", b.dataset.val === "AND"));
+  render();
+});
+document.getElementById("momentum-filter-reset").addEventListener("click", () => {
+  document.querySelectorAll(".momentum-filter, .price-tier-filter").forEach(cb => cb.checked = false);
+  document.getElementById("search").value = "";
+  [...document.getElementById("group-filter").options].forEach(o => o.selected = (o.value === "__all__"));
+  prevGroupSelection = new Set(["__all__"]);
+  document.getElementById("group-by-toggle").checked = false;
   render();
 });
 document.querySelectorAll("#tbl th[data-key]").forEach(th => {
