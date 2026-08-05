@@ -18,7 +18,20 @@
     font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
   }
   h1 { font-size: 1.3rem; margin: 0 0 4px; }
-  .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+  .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 12px; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .meta.loading { animation: pulse 1.3s ease-in-out infinite; }
+  .skeleton-bar {
+    display: inline-block; height: 11px; border-radius: 4px;
+    background: rgba(128,128,128,0.25); animation: pulse 1.3s ease-in-out infinite;
+  }
+  .kpi-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .kpi-card {
+    flex: 1 1 130px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+  }
+  .kpi-value { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
   .controls {
     display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
     margin-bottom: 14px;
@@ -34,15 +47,19 @@
     background: var(--card); color: var(--text); font-size: 0.9rem;
   }
   .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-  table { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 0.88rem; }
-  th, td { padding: 8px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); }
   th { position: sticky; top: 0; background: var(--card); cursor: pointer; user-select: none; }
   th.sorted::after { content: " " attr(data-dir); color: var(--accent); }
+  tbody tr:nth-child(even):not(.dual-board):not(.group-header) { background: rgba(128,128,128,0.035); }
   tbody tr:hover { background: rgba(128,128,128,0.08); }
-  .tag { display: inline-block; padding: 1px 6px; border-radius: 5px; font-size: 0.75rem; margin-right: 4px; }
-  .tag.trap { background: rgba(52,199,89,0.18); color: var(--down); }
-  .tag.recovery { background: rgba(77,163,255,0.18); color: var(--accent); }
-  .tag.gap { background: rgba(255,107,107,0.18); color: var(--up); }
+  .tag {
+    display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px;
+    font-size: 0.72rem; font-weight: 600; margin-right: 4px; border: 1px solid transparent;
+  }
+  .tag.trap { background: rgba(52,199,89,0.14); color: var(--down); border-color: rgba(52,199,89,0.35); }
+  .tag.recovery { background: rgba(77,163,255,0.14); color: var(--accent); border-color: rgba(77,163,255,0.35); }
+  .tag.gap { background: rgba(255,107,107,0.14); color: var(--up); border-color: rgba(255,107,107,0.35); }
   .score { font-weight: 600; }
   .disclaimer { color: var(--muted); font-size: 0.8rem; margin-top: 16px; }
   #empty { padding: 30px; text-align: center; color: var(--muted); }
@@ -61,15 +78,45 @@
   .mini-toggle button.active { background: var(--accent); color: #fff; }
   .filter-reset { width: 100%; margin-top: 4px; padding: 6px; border-radius: 6px; border: 1px solid var(--border);
     background: transparent; color: var(--text); cursor: pointer; font-size: 0.8rem; }
+  .filter-count { color: var(--muted); font-size: 0.78rem; margin-bottom: 8px; }
+  .filter-panel-toggle {
+    display: none; width: 100%; margin-bottom: 10px; padding: 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: transparent; color: var(--text);
+    font-size: 0.85rem; cursor: pointer; text-align: left;
+  }
   .main-col { flex: 1; min-width: 0; }
+  details.col-toggle {
+    margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; background: var(--card); font-size: 0.82rem;
+  }
+  details.col-toggle summary {
+    cursor: pointer; color: var(--muted); list-style: none; display: flex;
+    align-items: center; gap: 6px;
+  }
+  details.col-toggle summary::-webkit-details-marker { display: none; }
+  details.col-toggle summary::before {
+    content: "▸"; display: inline-block; font-size: 0.7rem; transition: transform 0.15s ease;
+  }
+  details.col-toggle[open] summary::before { transform: rotate(90deg); }
+  details.col-toggle label { display: inline-flex; align-items: center; gap: 4px; margin: 8px 12px 0 0; cursor: pointer; }
+  .filter-panel-toggle .chevron { display: inline-block; transition: transform 0.15s ease; }
+  .filter-panel.collapsed .filter-panel-toggle .chevron { transform: rotate(-90deg); }
+  @media (max-width: 700px) {
+    .layout { flex-direction: column; }
+    .filter-panel { flex: 1 1 auto; width: 100%; }
+    .filter-panel-toggle { display: block; }
+    .filter-panel.collapsed .filter-group,
+    .filter-panel.collapsed .filter-count,
+    .filter-panel.collapsed .filter-reset { display: none; }
+  }
   .holder-tag {
-    display: inline-block; padding: 0 5px; margin-left: 4px; border-radius: 5px;
+    display: inline-block; padding: 0 6px; margin-left: 4px; border-radius: 999px;
     border: 1px solid #ff9500; color: #ff9500; font-size: 0.7rem; font-weight: 600; line-height: 1.5;
   }
   .holder-tag.bear { border-color: #34c759; color: #34c759; }
-  .tag.mtag { background: rgba(255,59,48,0.16); color: #ff3b30; }
+  .tag.mtag { background: rgba(255,59,48,0.14); color: #ff3b30; border-color: rgba(255,59,48,0.35); }
   .dual-badge {
-    display: inline-block; padding: 0 5px; margin-left: 4px; border-radius: 5px;
+    display: inline-block; padding: 0 6px; margin-left: 4px; border-radius: 999px;
     background: #ffd60a; color: #1a1a1a; font-size: 0.7rem; font-weight: 700; line-height: 1.5;
   }
   tr.dual-board { background: rgba(255,214,10,0.10); }
@@ -92,7 +139,13 @@
 </head>
 <body>
   <h1>📋 台股綜合買入/做空評分</h1>
-  <div class="meta" id="meta">載入中...</div>
+  <div class="meta loading" id="meta">載入中...</div>
+  <div class="kpi-row" id="kpi-row">
+    <div class="kpi-card"><div class="kpi-value" id="kpi-total">–</div><div class="kpi-label">觀察股池</div></div>
+    <div class="kpi-card"><div class="kpi-value" id="kpi-alert">–</div><div class="kpi-label" id="kpi-alert-label">今日警示</div></div>
+    <div class="kpi-card"><div class="kpi-value" id="kpi-dual">–</div><div class="kpi-label">雙榜交集</div></div>
+    <div class="kpi-card"><div class="kpi-value" id="kpi-disp">–</div><div class="kpi-label">處置中</div></div>
+  </div>
 
   <div class="controls">
     <div class="toggle">
@@ -123,7 +176,8 @@
   <div class="board-note" id="board-note"></div>
 
   <div class="layout" id="support-view">
-    <div class="filter-panel">
+    <div class="filter-panel" id="support-filter-panel">
+      <button class="filter-panel-toggle" id="support-panel-toggle" type="button">篩選條件 <span class="chevron">▾</span></button>
       <div class="filter-group">
         <div class="group-head">
           <h3>均線篩選</h3>
@@ -152,10 +206,22 @@
         <h3>流動性陷阱</h3>
         <label><input type="checkbox" id="trap-filter"> 只顯示流動性陷阱</label>
       </div>
+      <div class="filter-count" id="filter-count-support"></div>
       <button class="filter-reset" id="filter-reset">清除所有篩選</button>
     </div>
 
     <div class="main-col">
+      <details class="col-toggle">
+        <summary>欄位顯示設定</summary>
+        <label><input type="checkbox" class="col-toggle-support" value="group" checked> 族群</label>
+        <label><input type="checkbox" class="col-toggle-support" value="close" checked> 收盤</label>
+        <label><input type="checkbox" class="col-toggle-support" value="total_score" checked> 總分</label>
+        <label><input type="checkbox" class="col-toggle-support" value="neckline_score" checked> 頸線分</label>
+        <label><input type="checkbox" class="col-toggle-support" value="ma_score" checked> 均線分</label>
+        <label><input type="checkbox" class="col-toggle-support" value="neckline_source" checked> 頸線來源</label>
+        <label><input type="checkbox" class="col-toggle-support" value="neckline_dist_pct" checked> 距現價%</label>
+        <label><input type="checkbox" class="col-toggle-support" value="flags" checked> 標記</label>
+      </details>
       <div class="table-wrap">
         <table id="tbl">
           <thead>
@@ -172,7 +238,13 @@
               <th data-key="flags">標記</th>
             </tr>
           </thead>
-          <tbody id="tbody"></tbody>
+          <tbody id="tbody">
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:92%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:78%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:85%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:70%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:88%"></span></td></tr>
+          </tbody>
         </table>
         <div id="empty" style="display:none">沒有符合條件的個股</div>
       </div>
@@ -180,7 +252,8 @@
   </div>
 
   <div class="layout" id="momentum-view" style="display:none">
-    <div class="filter-panel">
+    <div class="filter-panel" id="momentum-filter-panel">
+      <button class="filter-panel-toggle" id="momentum-panel-toggle" type="button">篩選條件 <span class="chevron">▾</span></button>
       <div class="filter-group">
         <h3>動能篩選</h3>
         <label><input type="checkbox" class="momentum-filter" value="rs_strong"> <span id="momentum-rs-label">RS強勢</span></label>
@@ -190,10 +263,22 @@
         <label><input type="checkbox" class="momentum-filter" value="platform_breakout"> 平台突破</label>
         <label><input type="checkbox" class="momentum-filter" value="first_pullback"> 強勢股首次回測5/10MA</label>
       </div>
+      <div class="filter-count" id="filter-count-momentum"></div>
       <button class="filter-reset" id="momentum-filter-reset">清除所有篩選</button>
     </div>
 
     <div class="main-col">
+      <details class="col-toggle">
+        <summary>欄位顯示設定</summary>
+        <label><input type="checkbox" class="col-toggle-momentum" value="group" checked> 族群</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="close" checked> 收盤</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="momentum_score" checked> 動能分</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="rs_score" checked> RS分</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="dist_to_52w_extreme_pct" checked> 距52週極值%</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="ma_structure_score" checked> 均線分</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="volume_score" checked> 量能分</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="flags" checked> 標記</label>
+      </details>
       <div class="table-wrap">
         <table id="tbl-momentum">
           <thead>
@@ -210,7 +295,13 @@
               <th data-key="flags">標記</th>
             </tr>
           </thead>
-          <tbody id="tbody-momentum"></tbody>
+          <tbody id="tbody-momentum">
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:90%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:75%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:83%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:68%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:86%"></span></td></tr>
+          </tbody>
         </table>
         <div id="empty-momentum" style="display:none">沒有符合條件的個股</div>
       </div>
@@ -304,14 +395,93 @@ let sortKeyGroups = "leading_score";
 let sortDirGroups = -1;
 let maAndOr = "AND";
 
+const STORAGE_KEY = "tsb_ui_state_v1";
+
+function currentUiState() {
+  return {
+    mode, board,
+    search: document.getElementById("search").value,
+    maFilters: checkedValues(".ma-filter"),
+    necklineFilters: checkedValues(".neckline-filter"),
+    trapOnly: document.getElementById("trap-filter").checked,
+    momentumFilters: checkedValues(".momentum-filter"),
+    priceTiers: checkedValues(".price-tier-filter"),
+    groups: selectedGroups(),
+    groupByToggle: document.getElementById("group-by-toggle").checked,
+    maAndOr,
+    hiddenColsSupport: [...document.querySelectorAll(".col-toggle-support")].filter(c => !c.checked).map(c => c.value),
+    hiddenColsMomentum: [...document.querySelectorAll(".col-toggle-momentum")].filter(c => !c.checked).map(c => c.value),
+  };
+}
+
+function saveUiState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(currentUiState())); } catch (e) {}
+}
+
+function loadUiState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function applyUiState(state) {
+  if (!state) return;
+  mode = state.mode === "short" ? "short" : "long";
+  board = ["support", "momentum", "groups", "disposition"].includes(state.board) ? state.board : "support";
+  document.getElementById("search").value = state.search || "";
+  document.querySelectorAll(".ma-filter").forEach(cb => cb.checked = (state.maFilters || []).includes(cb.value));
+  document.querySelectorAll(".neckline-filter").forEach(cb => cb.checked = (state.necklineFilters || []).includes(cb.value));
+  document.getElementById("trap-filter").checked = !!state.trapOnly;
+  document.querySelectorAll(".momentum-filter").forEach(cb => cb.checked = (state.momentumFilters || []).includes(cb.value));
+  document.querySelectorAll(".price-tier-filter").forEach(cb => cb.checked = (state.priceTiers || []).includes(cb.value));
+  document.getElementById("group-by-toggle").checked = !!state.groupByToggle;
+  maAndOr = state.maAndOr === "OR" ? "OR" : "AND";
+  document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.toggle("active", b.dataset.val === maAndOr));
+  document.querySelectorAll(".col-toggle-support").forEach(cb => cb.checked = !(state.hiddenColsSupport || []).includes(cb.value));
+  document.querySelectorAll(".col-toggle-momentum").forEach(cb => cb.checked = !(state.hiddenColsMomentum || []).includes(cb.value));
+
+  document.getElementById("btn-long").classList.toggle("active", mode === "long");
+  document.getElementById("btn-short").classList.toggle("active", mode === "short");
+  const boardMap = { support: "btn-support", momentum: "btn-momentum", groups: "btn-groups", disposition: "btn-disposition" };
+  const viewMap = { support: "support-view", momentum: "momentum-view", groups: "groups-view", disposition: "disposition-view" };
+  Object.entries(boardMap).forEach(([b, id]) => document.getElementById(id).classList.toggle("active", b === board));
+  Object.entries(viewMap).forEach(([b, id]) => document.getElementById(id).style.display = (b === board) ? "" : "none");
+
+  const sel = document.getElementById("group-filter");
+  if (state.groups && state.groups.length) {
+    [...sel.options].forEach(o => o.selected = state.groups.includes(o.value));
+  } else {
+    [...sel.options].forEach(o => o.selected = (o.value === "__all__"));
+  }
+  prevGroupSelection = new Set([...sel.selectedOptions].map(o => o.value));
+}
+
 async function load() {
+  const metaEl = document.getElementById("meta");
   const res = await fetch("data/latest.json?_=" + Date.now());
   DATA = await res.json();
-  document.getElementById("meta").textContent =
-    `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`;
+  metaEl.classList.remove("loading");
+  metaEl.textContent = `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`;
   populateGroups();
+  applyUiState(loadUiState());
   updateBoardNote();
+  renderKpis();
+  if (window.innerWidth <= 700) {
+    document.querySelectorAll(".filter-panel").forEach(p => p.classList.add("collapsed"));
+  }
   render();
+}
+
+function renderKpis() {
+  document.getElementById("kpi-total").textContent = (DATA.long || []).length;
+  document.getElementById("kpi-alert").textContent =
+    mode === "long" ? (DATA.long_alert_count ?? 0) : (DATA.short_alert_count ?? 0);
+  document.getElementById("kpi-alert-label").textContent = mode === "long" ? "多方警示" : "空方警示";
+  document.getElementById("kpi-dual").textContent = dualBoardSet().size;
+  document.getElementById("kpi-disp").textContent = ((DATA.disposition && DATA.disposition.current_list) || []).length;
 }
 
 function dualBoardSet() {
@@ -474,6 +644,13 @@ function markSortedHeaders(tableSel, key, dir) {
   });
 }
 
+function applyColumnVisibility(tableSel, checkboxSel) {
+  const hidden = [...document.querySelectorAll(checkboxSel)].filter(cb => !cb.checked).map(cb => cb.value);
+  document.querySelectorAll(`${tableSel} [data-key]`).forEach(el => {
+    el.style.display = hidden.includes(el.dataset.key) ? "none" : "";
+  });
+}
+
 function withGroupHeaders(rows, colSpan) {
   if (!document.getElementById("group-by-toggle").checked) {
     return rows.map(r => ({ row: r }));
@@ -495,11 +672,13 @@ function withGroupHeaders(rows, colSpan) {
 }
 
 function renderSupport() {
+  const totalRaw = (DATA[mode] || []).length;
   const rows = sortRows(currentRows(), sortKey, sortDir);
   const dual = dualBoardSet();
   const tbody = document.getElementById("tbody");
   tbody.innerHTML = "";
   document.getElementById("empty").style.display = rows.length ? "none" : "block";
+  document.getElementById("filter-count-support").textContent = `符合 ${rows.length} 檔／共 ${totalRaw} 檔`;
 
   for (const item of withGroupHeaders(rows, 10)) {
     if (item.header) {
@@ -513,28 +692,31 @@ function renderSupport() {
     const tr = document.createElement("tr");
     if (dual.has(r.stock_id)) tr.classList.add("dual-board");
     tr.innerHTML = `
-      <td>${r.stock_id}</td>
-      <td>${r.name}${dispositionMarkHtml(r)}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
-      <td>${r.group}</td>
-      <td>${r.close ?? ""}</td>
-      <td class="score">${r.total_score ?? ""}</td>
-      <td>${r.neckline_score ?? ""}</td>
-      <td>${r.ma_score ?? ""}</td>
-      <td>${r.neckline_source ?? ""}${r.neckline_age_mark ? " [" + r.neckline_age_mark + "]" : ""}</td>
-      <td>${r.neckline_dist_pct != null ? r.neckline_dist_pct + "%" : ""}</td>
-      <td>${flagsHtml(r)}</td>
+      <td data-key="stock_id">${r.stock_id}</td>
+      <td data-key="name">${r.name}${dispositionMarkHtml(r)}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
+      <td data-key="group">${r.group}</td>
+      <td data-key="close">${r.close ?? ""}</td>
+      <td data-key="total_score" class="score">${r.total_score ?? ""}</td>
+      <td data-key="neckline_score">${r.neckline_score ?? ""}</td>
+      <td data-key="ma_score">${r.ma_score ?? ""}</td>
+      <td data-key="neckline_source">${r.neckline_source ?? ""}${r.neckline_age_mark ? " [" + r.neckline_age_mark + "]" : ""}</td>
+      <td data-key="neckline_dist_pct">${r.neckline_dist_pct != null ? r.neckline_dist_pct + "%" : ""}</td>
+      <td data-key="flags">${flagsHtml(r)}</td>
     `;
     tbody.appendChild(tr);
   }
   markSortedHeaders("#tbl", sortKey, sortDir);
+  applyColumnVisibility("#tbl", ".col-toggle-support");
 }
 
 function renderMomentum() {
+  const totalRaw = (DATA[mode === "long" ? "momentum_long" : "momentum_short"] || []).length;
   const rows = sortRows(momentumRows(), sortKeyMomentum, sortDirMomentum);
   const dual = dualBoardSet();
   const tbody = document.getElementById("tbody-momentum");
   tbody.innerHTML = "";
   document.getElementById("empty-momentum").style.display = rows.length ? "none" : "block";
+  document.getElementById("filter-count-momentum").textContent = `符合 ${rows.length} 檔／共 ${totalRaw} 檔`;
 
   for (const item of withGroupHeaders(rows, 10)) {
     if (item.header) {
@@ -548,20 +730,21 @@ function renderMomentum() {
     const tr = document.createElement("tr");
     if (dual.has(r.stock_id)) tr.classList.add("dual-board");
     tr.innerHTML = `
-      <td>${r.stock_id}</td>
-      <td>${r.name}${dispositionMarkHtml(r)}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
-      <td>${r.group}</td>
-      <td>${r.close ?? ""}</td>
-      <td class="score">${r.momentum_score ?? ""}</td>
-      <td>${r.rs_score ?? ""}</td>
-      <td>${r.dist_to_52w_extreme_pct != null ? r.dist_to_52w_extreme_pct + "%" : ""}</td>
-      <td>${r.ma_structure_score ?? ""}</td>
-      <td>${r.volume_score ?? ""}</td>
-      <td>${momentumFlagsHtml(r)}</td>
+      <td data-key="stock_id">${r.stock_id}</td>
+      <td data-key="name">${r.name}${dispositionMarkHtml(r)}${dual.has(r.stock_id) ? '<span class="dual-badge">雙榜</span>' : ""}${holderTagsHtml(r)}</td>
+      <td data-key="group">${r.group}</td>
+      <td data-key="close">${r.close ?? ""}</td>
+      <td data-key="momentum_score" class="score">${r.momentum_score ?? ""}</td>
+      <td data-key="rs_score">${r.rs_score ?? ""}</td>
+      <td data-key="dist_to_52w_extreme_pct">${r.dist_to_52w_extreme_pct != null ? r.dist_to_52w_extreme_pct + "%" : ""}</td>
+      <td data-key="ma_structure_score">${r.ma_structure_score ?? ""}</td>
+      <td data-key="volume_score">${r.volume_score ?? ""}</td>
+      <td data-key="flags">${momentumFlagsHtml(r)}</td>
     `;
     tbody.appendChild(tr);
   }
   markSortedHeaders("#tbl-momentum", sortKeyMomentum, sortDirMomentum);
+  applyColumnVisibility("#tbl-momentum", ".col-toggle-momentum");
 }
 
 function renderGroups() {
@@ -655,6 +838,8 @@ document.getElementById("btn-long").addEventListener("click", () => {
   document.getElementById("btn-long").classList.add("active");
   document.getElementById("btn-short").classList.remove("active");
   updateBoardNote();
+  renderKpis();
+  saveUiState();
   render();
 });
 document.getElementById("btn-short").addEventListener("click", () => {
@@ -662,6 +847,8 @@ document.getElementById("btn-short").addEventListener("click", () => {
   document.getElementById("btn-short").classList.add("active");
   document.getElementById("btn-long").classList.remove("active");
   updateBoardNote();
+  renderKpis();
+  saveUiState();
   render();
 });
 function switchBoard(newBoard) {
@@ -674,13 +861,14 @@ function switchBoard(newBoard) {
   Object.entries(views).forEach(([b, viewId]) => {
     document.getElementById(viewId).style.display = (b === newBoard) ? "" : "none";
   });
+  saveUiState();
   render();
 }
 document.getElementById("btn-support").addEventListener("click", () => switchBoard("support"));
 document.getElementById("btn-momentum").addEventListener("click", () => switchBoard("momentum"));
 document.getElementById("btn-groups").addEventListener("click", () => switchBoard("groups"));
 document.getElementById("btn-disposition").addEventListener("click", () => switchBoard("disposition"));
-document.getElementById("search").addEventListener("input", render);
+document.getElementById("search").addEventListener("input", () => { saveUiState(); render(); });
 let prevGroupSelection = new Set(["__all__"]);
 document.getElementById("group-filter").addEventListener("change", () => {
   const sel = document.getElementById("group-filter");
@@ -700,20 +888,32 @@ document.getElementById("group-filter").addEventListener("change", () => {
   }
 
   prevGroupSelection = new Set([...sel.selectedOptions].map(o => o.value));
+  saveUiState();
   render();
 });
-document.getElementById("group-by-toggle").addEventListener("change", render);
+document.getElementById("group-by-toggle").addEventListener("change", () => { saveUiState(); render(); });
 
 document.querySelectorAll(".ma-filter, .neckline-filter, .price-tier-filter, .momentum-filter").forEach(cb => {
-  cb.addEventListener("change", render);
+  cb.addEventListener("change", () => { saveUiState(); render(); });
 });
-document.getElementById("trap-filter").addEventListener("change", render);
+document.getElementById("trap-filter").addEventListener("change", () => { saveUiState(); render(); });
+
+document.querySelectorAll(".col-toggle-support, .col-toggle-momentum").forEach(cb => {
+  cb.addEventListener("change", () => { saveUiState(); render(); });
+});
+
+document.querySelectorAll(".filter-panel-toggle").forEach(btn => {
+  btn.addEventListener("click", () => {
+    btn.closest(".filter-panel").classList.toggle("collapsed");
+  });
+});
 
 document.querySelectorAll("#ma-and-or button").forEach(btn => {
   btn.addEventListener("click", () => {
     maAndOr = btn.dataset.val;
     document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
+    saveUiState();
     render();
   });
 });
@@ -727,6 +927,7 @@ document.getElementById("filter-reset").addEventListener("click", () => {
   document.getElementById("group-by-toggle").checked = false;
   maAndOr = "AND";
   document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.toggle("active", b.dataset.val === "AND"));
+  saveUiState();
   render();
 });
 document.getElementById("momentum-filter-reset").addEventListener("click", () => {
@@ -735,6 +936,7 @@ document.getElementById("momentum-filter-reset").addEventListener("click", () =>
   [...document.getElementById("group-filter").options].forEach(o => o.selected = (o.value === "__all__"));
   prevGroupSelection = new Set(["__all__"]);
   document.getElementById("group-by-toggle").checked = false;
+  saveUiState();
   render();
 });
 document.querySelectorAll("#tbl th[data-key]").forEach(th => {
