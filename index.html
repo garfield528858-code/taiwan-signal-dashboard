@@ -464,7 +464,8 @@ async function load() {
   const res = await fetch("data/latest.json?_=" + Date.now());
   DATA = await res.json();
   metaEl.classList.remove("loading");
-  metaEl.textContent = `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`;
+  metaEl.textContent = `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`
+    + (DATA.is_morning_snapshot ? "　（開盤快照，部分股票用即時開盤價估算，非正式收盤價）" : "");
   populateGroups();
   applyUiState(loadUiState());
   updateBoardNote();
