@@ -264,6 +264,12 @@
         <label><input type="checkbox" class="momentum-filter" value="platform_breakout"> 平台突破</label>
         <label><input type="checkbox" class="momentum-filter" value="first_pullback"> 強勢股首次回測5/10MA</label>
       </div>
+      <div class="filter-group">
+        <h3>頸線突破整合 / 風報比</h3>
+        <label><input type="checkbox" class="momentum-filter" value="is_breakout_today"> 只看剛突破</label>
+        <label><input type="checkbox" class="momentum-filter" value="is_clear_above"> 只看上方無壓</label>
+        <label>R:R ≥ <input type="number" id="rr-threshold" min="0" step="0.1" style="width:60px" placeholder="不限"></label>
+      </div>
       <div class="filter-count" id="filter-count-momentum"></div>
       <button class="filter-reset" id="momentum-filter-reset">清除所有篩選</button>
     </div>
@@ -278,6 +284,11 @@
         <label><input type="checkbox" class="col-toggle-momentum" value="dist_to_52w_extreme_pct" checked> 距52週極值%</label>
         <label><input type="checkbox" class="col-toggle-momentum" value="ma_structure_score" checked> 均線分</label>
         <label><input type="checkbox" class="col-toggle-momentum" value="volume_score" checked> 量能分</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="overhead_room_pct" checked> 上方空間%</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="stop_price" checked> 停損價</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="target_price" checked> 目標價</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="risk_reward" checked> R:R</label>
+        <label><input type="checkbox" class="col-toggle-momentum" value="breakout_types" checked> 突破類型</label>
         <label><input type="checkbox" class="col-toggle-momentum" value="flags" checked> 標記</label>
       </details>
       <div class="table-wrap">
@@ -293,15 +304,20 @@
               <th data-key="dist_to_52w_extreme_pct">距52週極值%</th>
               <th data-key="ma_structure_score">均線分</th>
               <th data-key="volume_score">量能分</th>
+              <th data-key="overhead_room_pct">上方空間%</th>
+              <th data-key="stop_price">停損價</th>
+              <th data-key="target_price">目標價</th>
+              <th data-key="risk_reward">R:R</th>
+              <th data-key="breakout_types">突破類型</th>
               <th data-key="flags">標記</th>
             </tr>
           </thead>
           <tbody id="tbody-momentum">
-            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:90%"></span></td></tr>
-            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:75%"></span></td></tr>
-            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:83%"></span></td></tr>
-            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:68%"></span></td></tr>
-            <tr class="skeleton-row"><td colspan="10"><span class="skeleton-bar" style="width:86%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="15"><span class="skeleton-bar" style="width:90%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="15"><span class="skeleton-bar" style="width:75%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="15"><span class="skeleton-bar" style="width:83%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="15"><span class="skeleton-bar" style="width:68%"></span></td></tr>
+            <tr class="skeleton-row"><td colspan="15"><span class="skeleton-bar" style="width:86%"></span></td></tr>
           </tbody>
         </table>
         <div id="empty-momentum" style="display:none">沒有符合條件的個股</div>
@@ -381,7 +397,8 @@
 
   <div class="disclaimer">
     僅供參考，非投資建議。資料每日盤後自動更新。<br>
-    動能榜為暫定版：四因子權重與訊號門檻尚未回測校準，動能股停損邏輯（跌破10MA/平台就該走）跟支撐股不同，請勿套用同一套持股心態。
+    動能榜為暫定版：權重與訊號門檻尚未回測校準，動能股停損邏輯（跌破10MA/平台就該走）跟支撐股不同，請勿套用同一套持股心態。
+    目標價後面標「*」代表上方無壓、找不到實際壓力位，是用ATR倍數估算的推估值，不是真實壓力價位。
   </div>
 
 <script>
@@ -406,6 +423,7 @@ function currentUiState() {
     necklineFilters: checkedValues(".neckline-filter"),
     trapOnly: document.getElementById("trap-filter").checked,
     momentumFilters: checkedValues(".momentum-filter"),
+    rrThreshold: document.getElementById("rr-threshold").value,
     priceTiers: checkedValues(".price-tier-filter"),
     groups: selectedGroups(),
     groupByToggle: document.getElementById("group-by-toggle").checked,
@@ -437,6 +455,7 @@ function applyUiState(state) {
   document.querySelectorAll(".neckline-filter").forEach(cb => cb.checked = (state.necklineFilters || []).includes(cb.value));
   document.getElementById("trap-filter").checked = !!state.trapOnly;
   document.querySelectorAll(".momentum-filter").forEach(cb => cb.checked = (state.momentumFilters || []).includes(cb.value));
+  document.getElementById("rr-threshold").value = state.rrThreshold || "";
   document.querySelectorAll(".price-tier-filter").forEach(cb => cb.checked = (state.priceTiers || []).includes(cb.value));
   document.getElementById("group-by-toggle").checked = !!state.groupByToggle;
   maAndOr = state.maAndOr === "OR" ? "OR" : "AND";
@@ -582,12 +601,14 @@ function momentumRows() {
   const groupSelected = selectedGroups();
   const priceTierSelected = checkedValues(".price-tier-filter");
   const momentumSelected = checkedValues(".momentum-filter");
+  const rrThreshold = parseFloat(document.getElementById("rr-threshold").value);
   return raw
     .map(r => ({ ...r, ...commonRowFields(r) }))
     .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
     .filter(r => groupFilterPass(r, groupSelected))
     .filter(r => priceTierFilterPass(r, priceTierSelected))
-    .filter(r => momentumFilterPass(r, momentumSelected));
+    .filter(r => momentumFilterPass(r, momentumSelected))
+    .filter(r => isNaN(rrThreshold) || (r.risk_reward != null && r.risk_reward >= rrThreshold));
 }
 
 function groupsBoardRows() {
@@ -607,6 +628,9 @@ function flagsHtml(r) {
 function momentumFlagsHtml(r) {
   let out = "";
   if (r.rs_strong) out += `<span class="tag mtag">RS≥${DATA.rs_strong_percentile}</span>`;
+  if (r.is_breakout_today) out += `<span class="tag mtag">剛突破</span>`;
+  if (r.is_multi_breakout) out += `<span class="tag mtag">多重突破</span>`;
+  if (r.is_clear_above) out += `<span class="tag mtag">上方無壓</span>`;
   if (r.is_52w_extreme) out += `<span class="tag mtag">${mode === "long" ? "52週新高" : "52週新低"}</span>`;
   if (r.ma_bullish_alignment) out += `<span class="tag mtag">${mode === "long" ? "多頭排列" : "空頭排列"}</span>`;
   if (r.platform_breakout) out += `<span class="tag mtag">平台突破</span>`;
@@ -745,6 +769,11 @@ function renderMomentum() {
       <td data-key="dist_to_52w_extreme_pct">${r.dist_to_52w_extreme_pct != null ? r.dist_to_52w_extreme_pct + "%" : ""}</td>
       <td data-key="ma_structure_score">${r.ma_structure_score ?? ""}</td>
       <td data-key="volume_score">${r.volume_score ?? ""}</td>
+      <td data-key="overhead_room_pct">${r.is_clear_above ? "無壓" : (r.overhead_room_pct != null ? r.overhead_room_pct + "%" : "")}</td>
+      <td data-key="stop_price">${r.stop_price ?? ""}</td>
+      <td data-key="target_price">${r.target_price ?? ""}${r.target_is_projected ? "*" : ""}</td>
+      <td data-key="risk_reward">${r.risk_reward ?? ""}</td>
+      <td data-key="breakout_types">${(r.breakout_types || []).join("、")}</td>
       <td data-key="flags">${momentumFlagsHtml(r)}</td>
     `;
     tbody.appendChild(tr);
@@ -938,6 +967,7 @@ document.getElementById("filter-reset").addEventListener("click", () => {
 });
 document.getElementById("momentum-filter-reset").addEventListener("click", () => {
   document.querySelectorAll(".momentum-filter, .price-tier-filter").forEach(cb => cb.checked = false);
+  document.getElementById("rr-threshold").value = "";
   document.getElementById("search").value = "";
   [...document.getElementById("group-filter").options].forEach(o => o.selected = (o.value === "__all__"));
   prevGroupSelection = new Set(["__all__"]);
@@ -945,6 +975,7 @@ document.getElementById("momentum-filter-reset").addEventListener("click", () =>
   saveUiState();
   render();
 });
+document.getElementById("rr-threshold").addEventListener("input", () => { saveUiState(); render(); });
 document.querySelectorAll("#tbl th[data-key]").forEach(th => {
   th.addEventListener("click", () => {
     const key = th.dataset.key;
