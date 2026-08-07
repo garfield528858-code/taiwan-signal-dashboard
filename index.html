@@ -121,7 +121,6 @@
   }
   tr.dual-board { background: rgba(255,214,10,0.10); }
   .board-note { color: var(--muted); font-size: 0.8rem; margin: 4px 0 12px; }
-  select[multiple] { min-width: 160px; height: 90px; }
   tr.group-header td {
     background: var(--card); font-weight: 700; color: var(--accent);
     position: sticky; top: 33px;
@@ -136,10 +135,68 @@
   .wrap-text { white-space: normal; max-width: 480px; }
   .section-title { font-size: 1rem; margin: 18px 0 8px; }
   .section-title:first-child { margin-top: 0; }
+
+  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .topbar h1 { margin: 0; }
+  .nav-wrap { position: relative; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); font-size: 1.1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .icon-btn:hover { background: rgba(128,128,128,0.12); }
+  .nav-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 170px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 30; display: none;
+  }
+  .nav-menu.open { display: block; }
+  .nav-item {
+    display: block; width: 100%; text-align: left; padding: 9px 10px; border: none;
+    background: transparent; color: var(--text); border-radius: 6px; cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .nav-item:hover { background: rgba(128,128,128,0.12); }
+  .nav-item.active { background: var(--accent); color: #fff; font-weight: 600; }
+
+  .dropdown-filter { position: relative; }
+  .dropdown-filter-btn {
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); font-size: 0.9rem; cursor: pointer;
+  }
+  .dropdown-filter-btn:hover { background: rgba(128,128,128,0.12); }
+  .dropdown-filter-panel {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 210px; max-height: 300px;
+    overflow-y: auto; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 30; display: none;
+  }
+  .dropdown-filter-panel.open { display: block; }
+  .dropdown-filter-panel label {
+    display: flex; align-items: center; gap: 6px; padding: 4px 4px; cursor: pointer;
+    font-size: 0.85rem; border-radius: 6px;
+  }
+  .dropdown-filter-panel label:hover { background: rgba(128,128,128,0.1); }
+  .dropdown-filter-clear {
+    display: block; width: 100%; margin-bottom: 6px; padding: 5px; border-radius: 6px;
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    cursor: pointer; font-size: 0.78rem;
+  }
 </style>
 </head>
 <body>
-  <h1>📋 台股綜合買入/做空評分</h1>
+  <div class="topbar">
+    <div class="nav-wrap" id="nav-wrap">
+      <button type="button" class="icon-btn" id="nav-toggle" aria-label="選單" aria-expanded="false">☰</button>
+      <div class="nav-menu" id="nav-menu">
+        <button type="button" class="nav-item" data-board="support">the保守派</button>
+        <button type="button" class="nav-item" data-board="momentum">進擊の股票</button>
+        <button type="button" class="nav-item" data-board="disposition">處置專區</button>
+        <button type="button" class="nav-item" data-board="groups">族群強度</button>
+      </div>
+    </div>
+    <h1>📋 台股綜合買入/做空評分</h1>
+  </div>
   <div class="meta loading" id="meta">載入中...</div>
   <div class="kpi-row" id="kpi-row">
     <div class="kpi-card"><div class="kpi-value" id="kpi-total">–</div><div class="kpi-label">觀察股池</div></div>
@@ -153,15 +210,10 @@
       <button id="btn-long" class="active">多方（做多）</button>
       <button id="btn-short">空方（做空）</button>
     </div>
-    <div class="toggle">
-      <button id="btn-support" class="active">支撐榜（回檔佈局）</button>
-      <button id="btn-momentum">動能榜（強勢動能）</button>
-      <button id="btn-groups">族群強度（主流族群）</button>
-      <button id="btn-disposition">處置股專區</button>
+    <div class="dropdown-filter" id="group-filter-wrap">
+      <button type="button" class="dropdown-filter-btn" id="group-filter-btn">族群篩選 ▾</button>
+      <div class="dropdown-filter-panel" id="group-filter-panel"></div>
     </div>
-    <select id="group-filter" multiple title="Ctrl/Cmd+點選可複選">
-      <option value="__all__" selected>[全部]</option>
-    </select>
     <input type="text" id="search" placeholder="搜尋代號或名稱...">
     <label class="inline-check"><input type="checkbox" id="group-by-toggle"> 依族群分組顯示</label>
   </div>
@@ -397,7 +449,7 @@
 
   <div class="disclaimer">
     僅供參考，非投資建議。資料每日盤後自動更新。<br>
-    動能榜為暫定版：權重與訊號門檻尚未回測校準，動能股停損邏輯（跌破10MA/平台就該走）跟支撐股不同，請勿套用同一套持股心態。
+    進擊の股票為暫定版：權重與訊號門檻尚未回測校準，動能股停損邏輯（跌破10MA/平台就該走）跟支撐股不同，請勿套用同一套持股心態。
     目標價後面標「*」代表上方無壓、找不到實際壓力位，是用ATR倍數估算的推估值，不是真實壓力價位。
   </div>
 
@@ -465,18 +517,18 @@ function applyUiState(state) {
 
   document.getElementById("btn-long").classList.toggle("active", mode === "long");
   document.getElementById("btn-short").classList.toggle("active", mode === "short");
-  const boardMap = { support: "btn-support", momentum: "btn-momentum", groups: "btn-groups", disposition: "btn-disposition" };
-  const viewMap = { support: "support-view", momentum: "momentum-view", groups: "groups-view", disposition: "disposition-view" };
-  Object.entries(boardMap).forEach(([b, id]) => document.getElementById(id).classList.toggle("active", b === board));
-  Object.entries(viewMap).forEach(([b, id]) => document.getElementById(id).style.display = (b === board) ? "" : "none");
+  applyBoardVisibility(board);
 
-  const sel = document.getElementById("group-filter");
-  if (state.groups && state.groups.length) {
-    [...sel.options].forEach(o => o.selected = state.groups.includes(o.value));
-  } else {
-    [...sel.options].forEach(o => o.selected = (o.value === "__all__"));
-  }
-  prevGroupSelection = new Set([...sel.selectedOptions].map(o => o.value));
+  document.querySelectorAll(".group-filter-cb").forEach(cb => cb.checked = (state.groups || []).includes(cb.value));
+  updateGroupFilterLabel();
+}
+
+function applyBoardVisibility(b) {
+  document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.board === b));
+  const viewMap = { support: "support-view", momentum: "momentum-view", groups: "groups-view", disposition: "disposition-view" };
+  Object.entries(viewMap).forEach(([key, id]) => { document.getElementById(id).style.display = (key === b) ? "" : "none"; });
+  document.getElementById("group-filter-wrap").style.display = (b === "groups") ? "none" : "";
+  document.getElementById("price-tier-group").style.display = (b === "support" || b === "momentum") ? "" : "none";
 }
 
 async function load() {
@@ -488,6 +540,8 @@ async function load() {
     + (DATA.is_morning_snapshot ? "　（開盤快照，部分股票用即時開盤價估算，非正式收盤價）" : "");
   populateGroups();
   applyUiState(loadUiState());
+  applyBoardVisibility(board);
+  updateGroupFilterLabel();
   updateBoardNote();
   renderKpis();
   if (window.innerWidth <= 700) {
@@ -523,12 +577,33 @@ function updateBoardNote() {
 }
 
 function populateGroups() {
-  const sel = document.getElementById("group-filter");
-  (DATA.all_group_names || []).forEach(g => {
-    const opt = document.createElement("option");
-    opt.value = g; opt.textContent = g;
-    sel.appendChild(opt);
+  const panel = document.getElementById("group-filter-panel");
+  panel.innerHTML = "";
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "dropdown-filter-clear";
+  clearBtn.textContent = "清除選取";
+  clearBtn.addEventListener("click", () => {
+    document.querySelectorAll(".group-filter-cb").forEach(cb => cb.checked = false);
+    updateGroupFilterLabel();
+    saveUiState();
+    render();
   });
+  panel.appendChild(clearBtn);
+  (DATA.all_group_names || []).forEach(g => {
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.className = "group-filter-cb"; cb.value = g;
+    cb.addEventListener("change", () => { updateGroupFilterLabel(); saveUiState(); render(); });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(g));
+    panel.appendChild(label);
+  });
+}
+
+function updateGroupFilterLabel() {
+  const n = selectedGroups().length;
+  document.getElementById("group-filter-btn").textContent = n > 0 ? `族群篩選（已選${n}項）` : "族群篩選 ▾";
 }
 
 function checkedValues(selector) {
@@ -551,10 +626,14 @@ function groupFilterPass(r, selected) {
   return selected.some(g => (r.all_groups || []).includes(g));
 }
 
+function groupFilterPassId(stockId, selected) {
+  if (!selected.length) return true;
+  const g = (DATA.stocks[stockId] && DATA.stocks[stockId].all_groups) || [];
+  return selected.some(x => g.includes(x));
+}
+
 function selectedGroups() {
-  return [...document.getElementById("group-filter").selectedOptions]
-    .map(o => o.value)
-    .filter(v => v !== "__all__");
+  return checkedValues(".group-filter-cb");
 }
 
 function priceTierFilterPass(r, selected) {
@@ -807,11 +886,12 @@ function renderGroups() {
 
 function renderDisposition() {
   const disp = DATA.disposition || {};
+  const groupSelected = selectedGroups();
   const scoreMap = new Map(
     ((mode === "long" ? disp.ranking_long : disp.ranking_short) || []).map(r => [r.stock_id, r.total_score])
   );
 
-  const currentRows = disp.current_list || [];
+  const currentRows = (disp.current_list || []).filter(r => groupFilterPassId(r.stock_id, groupSelected));
   const tbodyCur = document.getElementById("tbody-disp-current");
   tbodyCur.innerHTML = "";
   document.getElementById("empty-disp-current").style.display = currentRows.length ? "none" : "block";
@@ -830,7 +910,8 @@ function renderDisposition() {
     tbodyCur.appendChild(tr);
   }
 
-  const approachRows = (mode === "long" ? disp.approaching_long : disp.approaching_short) || [];
+  const approachRows = ((mode === "long" ? disp.approaching_long : disp.approaching_short) || [])
+    .filter(r => groupFilterPassId(r.stock_id, groupSelected));
   const tbodyApp = document.getElementById("tbody-disp-approaching");
   tbodyApp.innerHTML = "";
   document.getElementById("empty-disp-approaching").style.display = approachRows.length ? "none" : "block";
@@ -844,6 +925,7 @@ function renderDisposition() {
   }
 
   const rankRows = [...((mode === "long" ? disp.ranking_long : disp.ranking_short) || [])]
+    .filter(r => groupFilterPassId(r.stock_id, groupSelected))
     .sort((a, b) => b.total_score - a.total_score);
   const tbodyRank = document.getElementById("tbody-disp-ranking");
   tbodyRank.innerHTML = "";
@@ -888,44 +970,35 @@ document.getElementById("btn-short").addEventListener("click", () => {
 });
 function switchBoard(newBoard) {
   board = newBoard;
-  const map = { support: "btn-support", momentum: "btn-momentum", groups: "btn-groups", disposition: "btn-disposition" };
-  const views = { support: "support-view", momentum: "momentum-view", groups: "groups-view", disposition: "disposition-view" };
-  Object.entries(map).forEach(([b, btnId]) => {
-    document.getElementById(btnId).classList.toggle("active", b === newBoard);
-  });
-  Object.entries(views).forEach(([b, viewId]) => {
-    document.getElementById(viewId).style.display = (b === newBoard) ? "" : "none";
-  });
+  applyBoardVisibility(board);
   saveUiState();
   render();
 }
-document.getElementById("btn-support").addEventListener("click", () => switchBoard("support"));
-document.getElementById("btn-momentum").addEventListener("click", () => switchBoard("momentum"));
-document.getElementById("btn-groups").addEventListener("click", () => switchBoard("groups"));
-document.getElementById("btn-disposition").addEventListener("click", () => switchBoard("disposition"));
-document.getElementById("search").addEventListener("input", () => { saveUiState(); render(); });
-let prevGroupSelection = new Set(["__all__"]);
-document.getElementById("group-filter").addEventListener("change", () => {
-  const sel = document.getElementById("group-filter");
-  const current = new Set([...sel.selectedOptions].map(o => o.value));
-  const newlyAdded = [...current].filter(v => !prevGroupSelection.has(v));
-
-  if (newlyAdded.includes("__all__")) {
-    // 剛選了[全部] -> 清空其他，只留全部(回到不篩選狀態)
-    [...sel.options].forEach(o => o.selected = (o.value === "__all__"));
-  } else if (current.has("__all__") && newlyAdded.length > 0) {
-    // 全部原本選著、又勾了別的族群 -> 取消全部，改成只篩該族群
-    sel.querySelector('option[value="__all__"]').selected = false;
-  }
-  if (![...sel.selectedOptions].length) {
-    // 取消到剩空 -> 回退成[全部]，不要卡在完全沒選取的狀態
-    sel.querySelector('option[value="__all__"]').selected = true;
-  }
-
-  prevGroupSelection = new Set([...sel.selectedOptions].map(o => o.value));
-  saveUiState();
-  render();
+document.querySelectorAll(".nav-item").forEach(btn => {
+  btn.addEventListener("click", () => {
+    switchBoard(btn.dataset.board);
+    document.getElementById("nav-menu").classList.remove("open");
+  });
 });
+document.getElementById("nav-toggle").addEventListener("click", (e) => {
+  e.stopPropagation();
+  document.getElementById("nav-menu").classList.toggle("open");
+  document.getElementById("group-filter-panel").classList.remove("open");
+});
+document.getElementById("group-filter-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  document.getElementById("group-filter-panel").classList.toggle("open");
+  document.getElementById("nav-menu").classList.remove("open");
+});
+document.addEventListener("click", (e) => {
+  const navWrap = document.getElementById("nav-wrap");
+  const navMenu = document.getElementById("nav-menu");
+  if (navMenu.classList.contains("open") && !navWrap.contains(e.target)) navMenu.classList.remove("open");
+  const gWrap = document.getElementById("group-filter-wrap");
+  const gPanel = document.getElementById("group-filter-panel");
+  if (gPanel.classList.contains("open") && !gWrap.contains(e.target)) gPanel.classList.remove("open");
+});
+document.getElementById("search").addEventListener("input", () => { saveUiState(); render(); });
 document.getElementById("group-by-toggle").addEventListener("change", () => { saveUiState(); render(); });
 
 document.querySelectorAll(".ma-filter, .neckline-filter, .price-tier-filter, .momentum-filter").forEach(cb => {
@@ -957,8 +1030,8 @@ document.getElementById("filter-reset").addEventListener("click", () => {
   document.querySelectorAll(".ma-filter, .neckline-filter, .price-tier-filter").forEach(cb => cb.checked = false);
   document.getElementById("trap-filter").checked = false;
   document.getElementById("search").value = "";
-  [...document.getElementById("group-filter").options].forEach(o => o.selected = (o.value === "__all__"));
-  prevGroupSelection = new Set(["__all__"]);
+  document.querySelectorAll(".group-filter-cb").forEach(cb => cb.checked = false);
+  updateGroupFilterLabel();
   document.getElementById("group-by-toggle").checked = false;
   maAndOr = "AND";
   document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.toggle("active", b.dataset.val === "AND"));
@@ -969,8 +1042,8 @@ document.getElementById("momentum-filter-reset").addEventListener("click", () =>
   document.querySelectorAll(".momentum-filter, .price-tier-filter").forEach(cb => cb.checked = false);
   document.getElementById("rr-threshold").value = "";
   document.getElementById("search").value = "";
-  [...document.getElementById("group-filter").options].forEach(o => o.selected = (o.value === "__all__"));
-  prevGroupSelection = new Set(["__all__"]);
+  document.querySelectorAll(".group-filter-cb").forEach(cb => cb.checked = false);
+  updateGroupFilterLabel();
   document.getElementById("group-by-toggle").checked = false;
   saveUiState();
   render();
