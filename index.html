@@ -193,6 +193,7 @@
         <button type="button" class="nav-item" data-board="momentum">進擊の股票</button>
         <button type="button" class="nav-item" data-board="disposition">處置專區</button>
         <button type="button" class="nav-item" data-board="groups">族群強度</button>
+        <button type="button" class="nav-item" data-board="chip">真金白銀</button>
       </div>
     </div>
     <h1>📋 台股綜合買入/做空評分</h1>
@@ -451,6 +452,79 @@
     </div>
   </div>
 
+  <div class="main-col" id="chip-view" style="display:none">
+    <h3 class="section-title">1. 大戶持股（集保股權分散表）</h3>
+    <div class="board-note" id="chip-holder-week-note"></div>
+    <div class="controls">
+      <div class="toggle" id="chip-holder-tier-toggle">
+        <button type="button" data-tier="1000張" class="active">1000張</button>
+        <button type="button" data-tier="800張">800張</button>
+        <button type="button" data-tier="600張">600張</button>
+        <button type="button" data-tier="400張">400張</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-chip-holder">
+        <thead>
+          <tr>
+            <th data-key="stock_id">代號</th>
+            <th data-key="name">名稱</th>
+            <th data-key="group">族群</th>
+            <th data-key="pct">本期持股比例%</th>
+            <th data-key="prev_pct">前期比例%</th>
+            <th data-key="change_pp">本週增減(pp)</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-chip-holder"></tbody>
+      </table>
+      <div id="empty-chip-holder" style="display:none">沒有符合條件的個股</div>
+    </div>
+
+    <h3 class="section-title" style="margin-top:24px">2-3. 三大法人買賣超金額排名（估算值）</h3>
+    <div class="board-note" id="chip-flow-date-note"></div>
+    <div class="controls">
+      <div class="toggle" id="chip-flow-category-toggle">
+        <button type="button" data-category="foreign">外資</button>
+        <button type="button" data-category="trust">投信</button>
+        <button type="button" data-category="dealer">自營商</button>
+        <button type="button" data-category="total" class="active">三大法人合計</button>
+        <button type="button" data-category="triple">三大法人齊買</button>
+      </div>
+      <select id="chip-flow-window">
+        <option value="1">近1日</option>
+        <option value="2">近2日</option>
+        <option value="3">近3日</option>
+        <option value="4">近4日</option>
+        <option value="5" selected>近5日</option>
+        <option value="10">近2週(10個交易日)</option>
+        <option value="15">近3週(15個交易日)</option>
+        <option value="20">近1個月(20個交易日)</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-chip-flow">
+        <thead>
+          <tr>
+            <th data-key="stock_id">代號</th>
+            <th data-key="name">名稱</th>
+            <th data-key="group">族群</th>
+            <th data-key="close">收盤</th>
+            <th data-key="net_amt">買賣超金額(估算)</th>
+            <th data-key="net_shares">買賣超股數</th>
+            <th data-key="pct_of_trading_value">佔成交金額比重%</th>
+            <th data-key="consecutive_days">連續買超天數</th>
+            <th data-key="triple_buy_days">期間齊買天數</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-chip-flow"></tbody>
+      </table>
+      <div id="empty-chip-flow" style="display:none">沒有符合條件的個股</div>
+    </div>
+    <div class="board-note">
+      金額為估算值：用當日成交均價(成交金額÷成交量)換算買賣超股數而來，不是法人實際成交價，僅供參考。
+    </div>
+  </div>
+
   <div class="disclaimer">
     僅供參考，非投資建議。資料每日盤後自動更新。<br>
     進擊の股票為暫定版：權重與訊號門檻尚未回測校準，動能股停損邏輯（跌破10MA/平台就該走）跟支撐股不同，請勿套用同一套持股心態。
@@ -468,6 +542,14 @@ let sortDirMomentum = -1;
 let sortKeyGroups = "leading_score";
 let sortDirGroups = -1;
 let maAndOr = "AND";
+let chipHolderTier = "1000張";
+let chipFlowCategory = "total";
+let chipFlowWindow = 5;
+let sortKeyChipHolder = "change_pp";
+let sortDirChipHolder = -1;
+let sortKeyChipFlow = "net_amt";
+let sortDirChipFlow = -1;
+let CLOSE_MAP = {};
 
 const STORAGE_KEY = "tsb_ui_state_v1";
 
@@ -486,6 +568,7 @@ function currentUiState() {
     maAndOr,
     hiddenColsSupport: [...document.querySelectorAll(".col-toggle-support")].filter(c => !c.checked).map(c => c.value),
     hiddenColsMomentum: [...document.querySelectorAll(".col-toggle-momentum")].filter(c => !c.checked).map(c => c.value),
+    chipHolderTier, chipFlowCategory, chipFlowWindow,
   };
 }
 
@@ -505,7 +588,7 @@ function loadUiState() {
 function applyUiState(state) {
   if (!state) return;
   mode = state.mode === "short" ? "short" : "long";
-  board = ["support", "momentum", "groups", "disposition"].includes(state.board) ? state.board : "support";
+  board = ["support", "momentum", "groups", "disposition", "chip"].includes(state.board) ? state.board : "support";
   document.getElementById("search").value = state.search || "";
   document.querySelectorAll(".ma-filter").forEach(cb => cb.checked = (state.maFilters || []).includes(cb.value));
   document.querySelectorAll(".neckline-filter").forEach(cb => cb.checked = (state.necklineFilters || []).includes(cb.value));
@@ -525,14 +608,24 @@ function applyUiState(state) {
 
   document.querySelectorAll(".group-filter-cb").forEach(cb => cb.checked = (state.groups || []).includes(cb.value));
   updateGroupFilterLabel();
+
+  chipHolderTier = state.chipHolderTier || "1000張";
+  chipFlowCategory = state.chipFlowCategory || "total";
+  chipFlowWindow = state.chipFlowWindow || 5;
+  document.querySelectorAll("#chip-holder-tier-toggle button").forEach(b => b.classList.toggle("active", b.dataset.tier === chipHolderTier));
+  document.querySelectorAll("#chip-flow-category-toggle button").forEach(b => b.classList.toggle("active", b.dataset.category === chipFlowCategory));
+  document.getElementById("chip-flow-window").value = String(chipFlowWindow);
 }
 
 function applyBoardVisibility(b) {
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.board === b));
-  const viewMap = { support: "support-view", momentum: "momentum-view", groups: "groups-view", disposition: "disposition-view" };
+  const viewMap = {
+    support: "support-view", momentum: "momentum-view", groups: "groups-view",
+    disposition: "disposition-view", chip: "chip-view",
+  };
   Object.entries(viewMap).forEach(([key, id]) => { document.getElementById(id).style.display = (key === b) ? "" : "none"; });
   document.getElementById("group-filter-wrap").style.display = (b === "groups") ? "none" : "";
-  document.getElementById("price-tier-group").style.display = (b === "support" || b === "momentum") ? "" : "none";
+  document.getElementById("price-tier-group").style.display = (b === "support" || b === "momentum" || b === "chip") ? "" : "none";
 }
 
 async function load() {
@@ -542,6 +635,7 @@ async function load() {
   metaEl.classList.remove("loading");
   metaEl.textContent = `資料日期：${DATA.date}　產生時間：${DATA.generated_at}`
     + (DATA.is_morning_snapshot ? "　（開盤快照，部分股票用即時開盤價估算，非正式收盤價）" : "");
+  CLOSE_MAP = Object.fromEntries((DATA.long || []).map(r => [r.stock_id, r.close]));
   populateGroups();
   applyUiState(loadUiState());
   applyBoardVisibility(board);
@@ -949,10 +1043,130 @@ function renderDisposition() {
   }
 }
 
+function priceTierOf(price) {
+  if (price == null) return null;
+  for (const t of (DATA.price_tiers || [])) {
+    if (price >= t.min && (t.max == null || price <= t.max)) return t.tier;
+  }
+  return null;
+}
+
+function chipHolderRows() {
+  const bh = DATA.chip_board && DATA.chip_board.big_holder;
+  if (!bh || !bh.available) return [];
+  const raw = bh.tables[chipHolderTier] || [];
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const groupSelected = selectedGroups();
+  const priceTierSelected = checkedValues(".price-tier-filter");
+  return raw
+    .map(r => {
+      const meta = DATA.stocks[r.stock_id] || {};
+      const close = CLOSE_MAP[r.stock_id];
+      return {
+        ...r, name: meta.name || "", group: meta.group || "未分類", all_groups: meta.all_groups || [],
+        close, price_tier: priceTierOf(close),
+      };
+    })
+    .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+    .filter(r => groupFilterPass(r, groupSelected))
+    .filter(r => priceTierFilterPass(r, priceTierSelected));
+}
+
+function chipFlowRows() {
+  const flow = DATA.chip_board && DATA.chip_board.institutional_flow;
+  if (!flow) return [];
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const groupSelected = selectedGroups();
+  const priceTierSelected = checkedValues(".price-tier-filter");
+  const catField = chipFlowCategory === "triple" ? "total" : chipFlowCategory;
+  return flow.rows
+    .map(r => {
+      const win = r.windows[chipFlowWindow];
+      if (!win) return null;
+      const meta = DATA.stocks[r.stock_id] || {};
+      const close = CLOSE_MAP[r.stock_id];
+      const net_amt = win[catField + "_amt"];
+      const net_shares = win[catField + "_net"];
+      const pct = (net_amt != null && win.trading_value_sum)
+        ? Math.round(net_amt / win.trading_value_sum * 10000) / 100 : null;
+      return {
+        stock_id: r.stock_id, name: meta.name || "", group: meta.group || "未分類", all_groups: meta.all_groups || [],
+        close, price_tier: priceTierOf(close),
+        net_amt, net_shares, pct_of_trading_value: pct,
+        triple_buy_days: win.triple_buy_days,
+        consecutive_days: r.consecutive_buy_days[catField],
+      };
+    })
+    .filter(r => r !== null)
+    .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+    .filter(r => groupFilterPass(r, groupSelected))
+    .filter(r => priceTierFilterPass(r, priceTierSelected));
+}
+
+function renderChipHolder() {
+  const rows = sortRows(chipHolderRows(), sortKeyChipHolder, sortDirChipHolder);
+  const tbody = document.getElementById("tbody-chip-holder");
+  tbody.innerHTML = "";
+  document.getElementById("empty-chip-holder").style.display = rows.length ? "none" : "block";
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td data-key="stock_id">${r.stock_id}</td>
+      <td data-key="name">${r.name}</td>
+      <td data-key="group">${r.group}</td>
+      <td data-key="pct">${r.pct != null ? r.pct + "%" : ""}</td>
+      <td data-key="prev_pct">${r.prev_pct != null ? r.prev_pct + "%" : ""}</td>
+      <td data-key="change_pp">${r.change_pp != null ? (r.change_pp > 0 ? "+" : "") + r.change_pp : ""}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  markSortedHeaders("#tbl-chip-holder", sortKeyChipHolder, sortDirChipHolder);
+
+  const bh = DATA.chip_board && DATA.chip_board.big_holder;
+  document.getElementById("chip-holder-week-note").textContent = (bh && bh.available)
+    ? `資料週別：${bh.snapshot_date}（前一期：${bh.prev_snapshot_date || "無"}）— 集保股權分散表是「週資料」，不是當日數據，只能看週對週變化`
+    : "目前沒有大戶持股資料";
+}
+
+function renderChipFlow() {
+  const rows = sortRows(chipFlowRows(), sortKeyChipFlow, sortDirChipFlow);
+  const tbody = document.getElementById("tbody-chip-flow");
+  tbody.innerHTML = "";
+  document.getElementById("empty-chip-flow").style.display = rows.length ? "none" : "block";
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td data-key="stock_id">${r.stock_id}</td>
+      <td data-key="name">${r.name}</td>
+      <td data-key="group">${r.group}</td>
+      <td data-key="close">${r.close ?? ""}</td>
+      <td data-key="net_amt">${r.net_amt != null ? (r.net_amt / 1e8).toFixed(2) + "億" : "無法估算"}</td>
+      <td data-key="net_shares">${r.net_shares != null ? r.net_shares.toLocaleString() : ""}</td>
+      <td data-key="pct_of_trading_value">${r.pct_of_trading_value != null ? r.pct_of_trading_value + "%" : ""}</td>
+      <td data-key="consecutive_days">${r.consecutive_days != null ? r.consecutive_days + "天" : ""}</td>
+      <td data-key="triple_buy_days">${r.triple_buy_days != null ? r.triple_buy_days + "天" : ""}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  markSortedHeaders("#tbl-chip-flow", sortKeyChipFlow, sortDirChipFlow);
+
+  const flow = DATA.chip_board && DATA.chip_board.institutional_flow;
+  const dates = (flow && flow.history_dates) || [];
+  document.getElementById("chip-flow-date-note").textContent = dates.length
+    ? `法人買賣超資料涵蓋交易日：${dates[0]} ~ ${dates[dates.length - 1]}（盤後才公布的資料，一天更新一次；金額為估算值，用當日成交均價換算，不是法人實際成交價）`
+    : "目前沒有法人買賣超資料";
+}
+
+function renderChipBoard() {
+  renderChipHolder();
+  renderChipFlow();
+}
+
 function render() {
   if (board === "support") renderSupport();
   else if (board === "momentum") renderMomentum();
   else if (board === "groups") renderGroups();
+  else if (board === "chip") renderChipBoard();
   else renderDisposition();
 }
 
@@ -1076,6 +1290,44 @@ document.querySelectorAll("#tbl-groups th[data-key]").forEach(th => {
     const key = th.dataset.key;
     if (key === sortKeyGroups) sortDirGroups *= -1;
     else { sortKeyGroups = key; sortDirGroups = -1; }
+    render();
+  });
+});
+
+document.querySelectorAll("#chip-holder-tier-toggle button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    chipHolderTier = btn.dataset.tier;
+    document.querySelectorAll("#chip-holder-tier-toggle button").forEach(b => b.classList.toggle("active", b === btn));
+    saveUiState();
+    render();
+  });
+});
+document.querySelectorAll("#chip-flow-category-toggle button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    chipFlowCategory = btn.dataset.category;
+    document.querySelectorAll("#chip-flow-category-toggle button").forEach(b => b.classList.toggle("active", b === btn));
+    saveUiState();
+    render();
+  });
+});
+document.getElementById("chip-flow-window").addEventListener("change", (e) => {
+  chipFlowWindow = parseInt(e.target.value, 10);
+  saveUiState();
+  render();
+});
+document.querySelectorAll("#tbl-chip-holder th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    if (key === sortKeyChipHolder) sortDirChipHolder *= -1;
+    else { sortKeyChipHolder = key; sortDirChipHolder = -1; }
+    render();
+  });
+});
+document.querySelectorAll("#tbl-chip-flow th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    if (key === sortKeyChipFlow) sortDirChipFlow *= -1;
+    else { sortKeyChipFlow = key; sortDirChipFlow = -1; }
     render();
   });
 });
