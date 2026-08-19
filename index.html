@@ -60,6 +60,7 @@
   .tag.trap { background: rgba(52,199,89,0.14); color: var(--down); border-color: rgba(52,199,89,0.35); }
   .tag.recovery { background: rgba(77,163,255,0.14); color: var(--accent); border-color: rgba(77,163,255,0.35); }
   .tag.gap { background: rgba(255,107,107,0.14); color: var(--up); border-color: rgba(255,107,107,0.35); }
+  .tag.island { background: rgba(175,82,222,0.14); color: #af52de; border-color: rgba(175,82,222,0.35); cursor: help; }
   .score { font-weight: 600; }
   .disclaimer { color: var(--muted); font-size: 0.8rem; margin-top: 16px; }
   #empty { padding: 30px; text-align: center; color: var(--muted); }
@@ -114,6 +115,8 @@
     border: 1px solid #ff9500; color: #ff9500; font-size: 0.7rem; font-weight: 600; line-height: 1.5;
   }
   .holder-tag.bear { border-color: #34c759; color: #34c759; }
+  .chip-bullish { color: #ff9500; font-weight: 600; }
+  .chip-bearish { color: #34c759; font-weight: 600; }
   .tag.mtag { background: rgba(255,59,48,0.14); color: #ff3b30; border-color: rgba(255,59,48,0.35); }
   .dual-badge {
     display: inline-block; padding: 0 6px; margin-left: 4px; border-radius: 999px;
@@ -127,6 +130,19 @@
   }
   label.inline-check { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer; }
   .disposition-mark { color: var(--up); font-weight: 700; margin-left: 4px; font-size: 0.85em; }
+  .rule-badge {
+    display: inline-block; padding: 0 6px; margin: 1px 2px 1px 0; border-radius: 999px;
+    font-size: 0.7rem; font-weight: 700; line-height: 1.6; white-space: nowrap;
+  }
+  .rule-badge.rule-a { background: rgba(77,163,255,0.16); color: var(--accent); border: 1px solid rgba(77,163,255,0.4); }
+  .rule-badge.rule-b { background: rgba(255,107,107,0.16); color: var(--up); border: 1px solid rgba(255,107,107,0.4); }
+  .rule-badge.rule-certain { background: #ffd60a; color: #1a1a1a; border: 1px solid #e6c200; }
+  .clause-hit { color: var(--up); font-weight: 700; }
+  .clause-near { color: var(--text); }
+  .clause-far { color: var(--muted); }
+  #tbl-disp-entering details summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
+  #tbl-disp-entering details[open] summary { margin-bottom: 4px; }
+  #tbl-disp-entering .clause-line { display: block; font-size: 0.8rem; margin: 2px 0; }
   .jump-mark { color: #ff9500; font-weight: 700; margin-left: 4px; font-size: 0.85em; }
   .subgroup-tag {
     display: inline-block; padding: 0 5px; margin-left: 3px; border-radius: 5px;
@@ -208,8 +224,8 @@
 
   <div class="controls">
     <div class="toggle">
-      <button id="btn-long" class="active">多方（做多）</button>
-      <button id="btn-short">空方（做空）</button>
+      <button id="btn-long" class="active">多方訊號</button>
+      <button id="btn-short">空方訊號</button>
     </div>
     <div class="dropdown-filter" id="group-filter-wrap">
       <button type="button" class="dropdown-filter-btn" id="group-filter-btn">族群篩選 ▾</button>
@@ -422,6 +438,21 @@
       <div id="empty-disp-current" style="display:none">目前沒有處於處置期間的個股。</div>
     </div>
 
+    <h3 class="section-title">近三日出關個股</h3>
+    <div class="board-note">最近3天內處置期已結束、目前不在處置中的股票（依出關日新到舊排序）。</div>
+    <div class="table-wrap">
+      <table id="tbl-disp-released">
+        <thead>
+          <tr>
+            <th>代號</th><th>名稱</th><th>族群</th><th>處置起日</th><th>處置迄日</th>
+            <th>出關幾天前</th><th class="wrap-text">原因</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-disp-released"></tbody>
+      </table>
+      <div id="empty-disp-released" style="display:none">最近3天內沒有股票出關。</div>
+    </div>
+
     <h3 class="section-title">7.2 今日警示股中符合進入處置條件者</h3>
     <div class="board-note">
       定義：「今日警示股(支撐軌總分達門檻 或 動能軌RS強)」∩「證交所/櫃買中心官方公布的注意交易資訊清單」，
@@ -450,18 +481,45 @@
       </table>
       <div id="empty-disp-ranking" style="display:none">處置股目前沒有評分資料。</div>
     </div>
+
+    <h3 class="section-title">7.4 即將進處置預警（全市場，差一次觸發即可能進處置）</h3>
+    <div class="board-note">
+      2026-08-12起改為全市場偵測，不限於股池內個股。官方「累計注意次數」以上一交易日收盤為準，只差一次觸發（連續三日第一款＝條件A；
+      或10日內6次／30日內12次任一款＝條件B）就會湊滿處置門檻的股票；已經達標（例如已連續三日）標示「⭐一定處置」。各款觸發價位僅算個股
+      門檻本身（「差幅」等與全體/同類均值比較的子條件未實作），為近似值、非官方精確數字，今日是否真的觸發需等收盤確認。目前實作第一~四款、
+      第七款；第五、六款需要券商分點/投資人成交資料，查證後確認資料源被驗證碼擋住或屬個人隱私資料，未實作。TPEx門檻沿用TWSE數字。
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-disp-entering">
+        <thead>
+          <tr>
+            <th>代號</th><th>名稱</th><th>市場</th><th>命中條件</th><th>資料日</th>
+            <th>最接近門檻</th><th class="wrap-text">官方累計狀態</th><th class="wrap-text">其他款</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-disp-entering"></tbody>
+      </table>
+      <div id="empty-disp-entering" style="display:none">全市場目前沒有股票差一次觸發就可能進處置。</div>
+    </div>
   </div>
 
   <div class="main-col" id="chip-view" style="display:none">
     <div class="toggle" id="chip-section-toggle">
       <button type="button" data-section="holder" class="active">大戶持股</button>
       <button type="button" data-section="flow">三大法人買賣超金額</button>
+      <button type="button" data-section="margin">資券進出情形</button>
     </div>
 
     <div id="chip-section-holder">
-      <h3 class="section-title">大戶持股（集保股權分散表）</h3>
+      <h3 class="section-title">大戶持股（集保股權分散表 + 融資融券，誰在賣→誰在接→有沒有槓桿→空方壓力）</h3>
       <div class="board-note" id="chip-holder-week-note"></div>
       <div class="board-note" id="chip-holder-mode-note"></div>
+      <div class="board-note">
+        大戶(依下方級距)/散戶(未達400張)增減都是「持股比例的週增減(pp，百分點)」。融資增加比例是餘額週變化率%，
+        已對齊到跟集保比較同一個週區間；券資比用最新可取得的交易日算(不受集保週對齊限制，可能比集保資料週更新)。
+        券資比「異常偏高」用股池分布90分位動態算，不是固定數字。股本異常(增減資/可轉債轉換等)的個股，本週增減(pp)
+        比例會失真，標示⚠️不當一般訊號用。缺融資融券資料一律顯示「—」，不當0。固定顯示排序後前50檔。
+      </div>
       <div class="controls">
         <div class="toggle" id="chip-holder-tier-toggle">
           <button type="button" data-tier="1000張" class="active">1000張</button>
@@ -478,11 +536,18 @@
               <th data-key="name">名稱</th>
               <th data-key="group">族群</th>
               <th data-key="change_pp">本週增減(pp)</th>
+              <th data-key="retail_change_pp">散戶增減(pp)</th>
+              <th data-key="margin_change_pct">融資增加比例</th>
+              <th data-key="short_margin_ratio_pct">券資比</th>
+              <th data-key="combo">組合標記</th>
             </tr>
           </thead>
           <tbody id="tbody-chip-holder"></tbody>
         </table>
         <div id="empty-chip-holder" style="display:none">沒有符合條件的個股</div>
+      </div>
+      <div class="board-note">
+        ⚠️「最乾淨/打折/危險換手/同步撤退」四個組合分類是使用者自訂的判斷框架，沒有經過驗證，只當資訊標記用，不是買賣訊號。
       </div>
     </div>
 
@@ -495,7 +560,7 @@
           <button type="button" data-category="trust">投信</button>
           <button type="button" data-category="dealer">自營商</button>
           <button type="button" data-category="total" class="active">三大法人合計</button>
-          <button type="button" data-category="triple">三大法人齊買</button>
+          <button type="button" data-category="ft_buy">外資投信齊買</button>
         </div>
         <select id="chip-flow-window">
           <option value="1">近1日</option>
@@ -520,7 +585,7 @@
               <th data-key="net_shares">買賣超股數</th>
               <th data-key="pct_of_trading_value">佔成交金額比重%</th>
               <th data-key="consecutive_days">連續買超天數</th>
-              <th data-key="triple_buy_days">期間齊買天數</th>
+              <th data-key="ft_buy_days">期間外資投信齊買天數</th>
             </tr>
           </thead>
           <tbody id="tbody-chip-flow"></tbody>
@@ -529,6 +594,55 @@
       </div>
       <div class="board-note">
         金額為估算值：用當日成交均價(成交金額÷成交量)換算買賣超股數而來，不是法人實際成交價，僅供參考。
+      </div>
+    </div>
+
+    <div id="chip-section-margin" style="display:none">
+      <h3 class="section-title">資券進出情形（融資/融券/借券/借券賣出餘額窗口變化 + 券資比）</h3>
+      <div class="board-note" id="chip-margin-date-note"></div>
+      <div class="board-note">
+        融資/融券/借券/借券賣出都是「窗口內餘額變化(張 + 變化率%)」，例如近5日融資+120張(+3.2%)代表這5個交易日
+        融資餘額淨增加120張。借券≠借券賣出：借券餘額含避險/結算等各種借券用途，借券賣出餘額只算真的
+        拿去賣出放空的部分(是借券餘額的子集，數字通常小很多)。券資比是「最新可取得交易日」的當下比值
+        (融券餘額÷融資餘額)，不是窗口累加。資料來源是TWSE/TPEx官方全市場端點，跟FinMind無關、不受FinMind額度限制。
+      </div>
+      <div class="controls">
+        <select id="chip-margin-window">
+          <option value="1">近1日</option>
+          <option value="2">近2日</option>
+          <option value="3">近3日</option>
+          <option value="4">近4日</option>
+          <option value="5" selected>近5日</option>
+          <option value="10">近2週(10個交易日)</option>
+          <option value="15">近3週(15個交易日)</option>
+          <option value="20">近1個月(20個交易日)</option>
+        </select>
+      </div>
+      <details class="col-toggle">
+        <summary>欄位顯示設定</summary>
+        <label><input type="checkbox" class="col-toggle-margin" value="margin" checked> 融資</label>
+        <label><input type="checkbox" class="col-toggle-margin" value="short" checked> 融券</label>
+        <label><input type="checkbox" class="col-toggle-margin" value="lending" checked> 借券</label>
+        <label><input type="checkbox" class="col-toggle-margin" value="lending_sell" checked> 借券賣出</label>
+        <label><input type="checkbox" class="col-toggle-margin" value="short_margin_ratio_pct" checked> 券資比</label>
+      </details>
+      <div class="table-wrap">
+        <table id="tbl-chip-margin">
+          <thead>
+            <tr>
+              <th data-key="stock_id">代號</th>
+              <th data-key="name">名稱</th>
+              <th data-key="group">族群</th>
+              <th data-key="margin">融資餘額變化</th>
+              <th data-key="short">融券餘額變化</th>
+              <th data-key="lending">借券餘額變化</th>
+              <th data-key="lending_sell">借券賣出餘額變化</th>
+              <th data-key="short_margin_ratio_pct">券資比</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-chip-margin"></tbody>
+        </table>
+        <div id="empty-chip-margin" style="display:none">沒有符合條件的個股</div>
       </div>
     </div>
   </div>
@@ -550,14 +664,18 @@ let sortDirMomentum = -1;
 let sortKeyGroups = "leading_score";
 let sortDirGroups = -1;
 let maAndOr = "AND";
-let chipSection = "holder"; // "holder" 或 "flow"，真金白銀頁面內的子頁籤，不用滑鼠滾動切換
+let chipSection = "holder"; // "holder"/"flow"/"margin"，真金白銀頁面內的子頁籤，不用滑鼠滾動切換
 let chipHolderTier = "1000張";
 let chipFlowCategory = "total";
 let chipFlowWindow = 5;
+let chipMarginWindow = 5;
 let sortKeyChipHolder = "change_pp";
 let sortDirChipHolder = -1;
 let sortKeyChipFlow = "net_amt";
 let sortDirChipFlow = -1;
+let sortKeyChipMargin = "stock_id";
+let sortDirChipMargin = -1;
+const CHIP_HOLDER_LIMIT = 50; // 2026-08-12拿掉前25/前50切換，固定只顯示排序後前50檔
 let CLOSE_MAP = {};
 
 const STORAGE_KEY = "tsb_ui_state_v1";
@@ -577,7 +695,8 @@ function currentUiState() {
     maAndOr,
     hiddenColsSupport: [...document.querySelectorAll(".col-toggle-support")].filter(c => !c.checked).map(c => c.value),
     hiddenColsMomentum: [...document.querySelectorAll(".col-toggle-momentum")].filter(c => !c.checked).map(c => c.value),
-    chipSection, chipHolderTier, chipFlowCategory, chipFlowWindow,
+    hiddenColsMargin: [...document.querySelectorAll(".col-toggle-margin")].filter(c => !c.checked).map(c => c.value),
+    chipSection, chipHolderTier, chipFlowCategory, chipFlowWindow, chipMarginWindow,
   };
 }
 
@@ -610,6 +729,7 @@ function applyUiState(state) {
   document.querySelectorAll("#ma-and-or button").forEach(b => b.classList.toggle("active", b.dataset.val === maAndOr));
   document.querySelectorAll(".col-toggle-support").forEach(cb => cb.checked = !(state.hiddenColsSupport || []).includes(cb.value));
   document.querySelectorAll(".col-toggle-momentum").forEach(cb => cb.checked = !(state.hiddenColsMomentum || []).includes(cb.value));
+  document.querySelectorAll(".col-toggle-margin").forEach(cb => cb.checked = !(state.hiddenColsMargin || []).includes(cb.value));
 
   document.getElementById("btn-long").classList.toggle("active", mode === "long");
   document.getElementById("btn-short").classList.toggle("active", mode === "short");
@@ -618,16 +738,19 @@ function applyUiState(state) {
   document.querySelectorAll(".group-filter-cb").forEach(cb => cb.checked = (state.groups || []).includes(cb.value));
   updateGroupFilterLabel();
 
-  chipSection = state.chipSection === "flow" ? "flow" : "holder";
+  chipSection = ["flow", "margin"].includes(state.chipSection) ? state.chipSection : "holder";
   chipHolderTier = state.chipHolderTier || "1000張";
   chipFlowCategory = state.chipFlowCategory || "total";
   chipFlowWindow = state.chipFlowWindow || 5;
+  chipMarginWindow = state.chipMarginWindow || 5;
   document.querySelectorAll("#chip-section-toggle button").forEach(b => b.classList.toggle("active", b.dataset.section === chipSection));
   document.getElementById("chip-section-holder").style.display = (chipSection === "holder") ? "" : "none";
   document.getElementById("chip-section-flow").style.display = (chipSection === "flow") ? "" : "none";
+  document.getElementById("chip-section-margin").style.display = (chipSection === "margin") ? "" : "none";
   document.querySelectorAll("#chip-holder-tier-toggle button").forEach(b => b.classList.toggle("active", b.dataset.tier === chipHolderTier));
   document.querySelectorAll("#chip-flow-category-toggle button").forEach(b => b.classList.toggle("active", b.dataset.category === chipFlowCategory));
   document.getElementById("chip-flow-window").value = String(chipFlowWindow);
+  document.getElementById("chip-margin-window").value = String(chipMarginWindow);
 }
 
 function applyBoardVisibility(b) {
@@ -639,6 +762,12 @@ function applyBoardVisibility(b) {
   Object.entries(viewMap).forEach(([key, id]) => { document.getElementById(id).style.display = (key === b) ? "" : "none"; });
   document.getElementById("group-filter-wrap").style.display = (b === "groups") ? "none" : "";
   document.getElementById("price-tier-group").style.display = (b === "support" || b === "momentum" || b === "chip") ? "" : "none";
+  // 多方/空方按鈕是全站共用的mode切換，「做多/做空」暗示實際交易動作，2026-08-12使用者
+  // 要求改成「訊號」用詞(保守派/進擊の股票)、籌碼面資料則用「籌碼偏多/偏空」(真金白銀)，
+  // 兩邊都不是「叫你做多/做空」的字眼，避免被誤解成投資建議。
+  const isChip = b === "chip";
+  document.getElementById("btn-long").textContent = isChip ? "籌碼偏多" : "多方訊號";
+  document.getElementById("btn-short").textContent = isChip ? "籌碼偏空" : "空方訊號";
 }
 
 async function load() {
@@ -757,7 +886,7 @@ function commonRowFields(r) {
   return {
     name: meta.name || "", group: meta.group || "未分類", all_groups: meta.all_groups || [],
     holder_tiers: meta.holder_increase_tiers || [], holder_decrease_tiers: meta.holder_decrease_tiers || [],
-    is_disposition: !!meta.is_disposition,
+    is_disposition: !!meta.is_disposition, disposition_end: meta.disposition_end || null,
   };
 }
 
@@ -812,6 +941,11 @@ function flagsHtml(r) {
   if (r.gap_signal) out += `<span class="tag gap">${r.gap_signal}</span>`;
   if (r.liquidity_trap) out += `<span class="tag trap">${mode === "long" ? "流動性陷阱" : "假突破陷阱"}</span>`;
   if (r.neckline_recovery) out += `<span class="tag recovery">${mode === "long" ? "跌破站回" : "突破跌回"}</span>`;
+  if (r.island_active && r.island_detail) {
+    const isl = r.island_detail;
+    const title = `${isl.kind === "top" ? "島頂反轉(壓力)" : "島底反轉(支撐)"}　${isl.gap1_date}~${isl.gap2_date}　區間${isl.price_min}~${isl.price_max}`;
+    out += `<span class="tag island" title="${title}">island</span>`;
+  }
   return out;
 }
 
@@ -835,7 +969,12 @@ function holderTagsHtml(r) {
 }
 
 function dispositionMarkHtml(r) {
-  return r.is_disposition ? '<span class="disposition-mark">[處置]</span>' : "";
+  // 2026-08-10修正：is_disposition是產生JSON當下算好的布林值，JSON產生後過一段時間
+  // 原本的處置期到期，這個布林值不會跟著變成false——改用disposition_end即時重算，
+  // 避免已出關的股票在主表上一直掛著[處置]標記(跟§7.1同一個根因，見renderDisposition)。
+  if (!r.is_disposition) return "";
+  const dtr = daysToRelease(r.disposition_end);
+  return (dtr == null || dtr >= 0) ? '<span class="disposition-mark">[處置]</span>' : "";
 }
 
 function jumpMarkHtml(r) {
@@ -997,6 +1136,19 @@ function renderGroups() {
   markSortedHeaders("#tbl-groups", sortKeyGroups, sortDirGroups);
 }
 
+function daysToRelease(endDateStr) {
+  // 2026-08-10修正：後端算好的days_to_release是「產生JSON那天」算的，網站只在平日
+  // 收盤後才重新產生，跨週末/沒排程的日子看網站，倒數會凍結在產生當天、沒有跟著
+  // 今天往前推進(使用者回報「出關日期都有誤」，根因在此)。end_date本身是官方公告的
+  // 固定日期不會錯，只有「還剩幾天」這個相對值要用「看網站當下的今天」現算，不能
+  // 相信JSON裡凍結的舊值。
+  if (!endDateStr) return null;
+  const end = new Date(endDateStr + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((end - today) / 86400000);
+}
+
 function renderDisposition() {
   const disp = DATA.disposition || {};
   const groupSelected = selectedGroups();
@@ -1004,23 +1156,52 @@ function renderDisposition() {
     ((mode === "long" ? disp.ranking_long : disp.ranking_short) || []).map(r => [r.stock_id, r.total_score])
   );
 
-  const currentRows = (disp.current_list || []).filter(r => groupFilterPassId(r.stock_id, groupSelected));
+  // 2026-08-10修正：後端算好的days_to_release是「產生JSON那天」算的，只要JSON產生後
+  // 過了一段時間、原本有效的處置股到期，舊版只會把文字改標「已出關」但那一列還留在表格
+  // 裡不會消失(使用者回報「很多早就出關的個股仍然在名單上」，根因在此)。改成用瀏覽器
+  // 當下即時算出的dtr直接把已出關的列從「目前處置中」濾掉，不只是改標籤文字。
+  const currentRows = (disp.current_list || [])
+    .filter(r => groupFilterPassId(r.stock_id, groupSelected))
+    .filter(r => (daysToRelease(r.end_date) ?? 0) >= 0);
   const tbodyCur = document.getElementById("tbody-disp-current");
   tbodyCur.innerHTML = "";
   document.getElementById("empty-disp-current").style.display = currentRows.length ? "none" : "block";
-  for (const r of currentRows) {
+  for (const r of currentRows.slice().sort((a, b) => (daysToRelease(a.end_date) ?? 9999) - (daysToRelease(b.end_date) ?? 9999))) {
     const group = DATA.stocks[r.stock_id]?.group || "未分類";
     const score = scoreMap.get(r.stock_id);
+    const dtr = daysToRelease(r.end_date);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${r.stock_id}</td><td>${r.stock_name}</td><td>${group}</td>
       <td class="score">${score ?? "無資料"}</td>
       <td>${r.start_date ?? ""}</td><td>${r.end_date ?? ""}</td>
-      <td>${r.days_to_release != null ? r.days_to_release + "天" : ""}</td>
+      <td>${dtr}天</td>
       <td>${r.matching_interval_min != null ? r.matching_interval_min + "分" : ""}</td>
       <td class="wrap-text">${r.reason ?? ""}</td>
     `;
     tbodyCur.appendChild(tr);
+  }
+
+  // 跟currentRows同樣道理：days_since_release是產生JSON當下算的，這裡改用瀏覽器當下
+  // 即時重算，JSON產生後過了3天以上的舊出關紀錄會自動從清單消失，不用等下次重新產生。
+  const releasedRows = (disp.recently_released || [])
+    .filter(r => groupFilterPassId(r.stock_id, groupSelected))
+    .map(r => ({ ...r, _daysSince: -(daysToRelease(r.end_date) ?? -999) }))
+    .filter(r => r._daysSince >= 0 && r._daysSince <= 3)
+    .sort((a, b) => a._daysSince - b._daysSince);
+  const tbodyRel = document.getElementById("tbody-disp-released");
+  tbodyRel.innerHTML = "";
+  document.getElementById("empty-disp-released").style.display = releasedRows.length ? "none" : "block";
+  for (const r of releasedRows) {
+    const group = DATA.stocks[r.stock_id]?.group || "未分類";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.stock_id}</td><td>${r.stock_name}</td><td>${group}</td>
+      <td>${r.start_date ?? ""}</td><td>${r.end_date ?? ""}</td>
+      <td>${r._daysSince}天前</td>
+      <td class="wrap-text">${r.reason ?? ""}</td>
+    `;
+    tbodyRel.appendChild(tr);
   }
 
   const approachRows = ((mode === "long" ? disp.approaching_long : disp.approaching_short) || [])
@@ -1054,6 +1235,70 @@ function renderDisposition() {
     `;
     tbodyRank.appendChild(tr);
   }
+
+  const enteringRows = (disp.entering_soon || []).filter(r => groupFilterPassId(r.stock_id, groupSelected));
+  const tbodyEnter = document.getElementById("tbody-disp-entering");
+  tbodyEnter.innerHTML = "";
+  document.getElementById("empty-disp-entering").style.display = enteringRows.length ? "none" : "block";
+  const sortedEntering = [...enteringRows].sort((a, b) => minClauseDistance(a.clauses) - minClauseDistance(b.clauses));
+  for (const r of sortedEntering) {
+    const clausesSorted = [...(r.clauses || [])].sort((a, b) => clauseDistanceValue(a) - clauseDistanceValue(b));
+    const primary = clausesSorted[0];
+    const rest = clausesSorted.slice(1);
+    const restHtml = rest.length
+      ? `<details><summary>其他${rest.length}款</summary>${rest.map(clauseDescHtml).join("")}</details>`
+      : "";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.stock_id}</td><td>${r.stock_name}</td><td>${r.market}</td>
+      <td>${ruleBadgesHtml(r.rule_hits)}</td>
+      <td>${r.live_date ?? ""}</td>
+      <td>${primary ? clauseDescHtml(primary) : "（資料不足）"}</td>
+      <td class="wrap-text">${r.accumulation ?? ""}</td>
+      <td class="wrap-text">${restHtml}</td>
+    `;
+    tbodyEnter.appendChild(tr);
+  }
+}
+
+function ruleBadgesHtml(ruleHits) {
+  return (ruleHits || []).map(h => {
+    if (h.already_met) return `<span class="rule-badge rule-certain">⭐一定處置</span>`;
+    const isB = h.rule.includes("條件B");
+    return `<span class="rule-badge ${isB ? "rule-b" : "rule-a"}">${h.rule}</span>`;
+  }).join("");
+}
+
+function clauseLabelText(c) {
+  return c.clause === "第二款" ? `第二款(${c.window_days}日${c.pct.toFixed(0)}%)` : c.clause;
+}
+
+// 已達門檻(距離<=0)算最緊迫，用-1排在最前面；沒有現價可比對距離的款次視為Infinity(未知，排最後)。
+function clauseDistanceValue(c) {
+  const candidates = [];
+  if (c.dist_up_pct != null) candidates.push(c.dist_up_pct <= 0 ? -1 : c.dist_up_pct);
+  if (c.dist_down_pct != null) candidates.push(c.dist_down_pct <= 0 ? -1 : c.dist_down_pct);
+  return candidates.length ? Math.min(...candidates) : Infinity;
+}
+
+function minClauseDistance(clauses) {
+  if (!clauses || !clauses.length) return Infinity;
+  return Math.min(...clauses.map(clauseDistanceValue));
+}
+
+function clauseDescHtml(c) {
+  const label = clauseLabelText(c);
+  const down = c.down_trigger_price > 0 ? `或跌到${c.down_trigger_price}` : "";
+  const vol = c.volume_trigger ? `+量≥${c.volume_trigger.toLocaleString()}股` : "";
+  let distText = "";
+  if (c.dist_up_pct != null) {
+    const upText = c.dist_up_pct <= 0 ? "已達漲幅門檻" : `距漲${c.dist_up_pct}%`;
+    const downText = c.dist_down_pct != null ? (c.dist_down_pct <= 0 ? "已達跌幅門檻" : `距跌${c.dist_down_pct}%`) : "";
+    distText = `[${upText}${downText ? "／" + downText : ""}]`;
+  }
+  const urgency = clauseDistanceValue(c);
+  const cls = urgency <= 0 ? "clause-hit" : (urgency <= 5 ? "clause-near" : "clause-far");
+  return `<span class="clause-line ${cls}">${label}：漲到${c.up_trigger_price}${down}${vol} ${distText}</span>`;
 }
 
 function priceTierOf(price) {
@@ -1092,7 +1337,7 @@ function chipFlowRows() {
   const q = document.getElementById("search").value.trim().toLowerCase();
   const groupSelected = selectedGroups();
   const priceTierSelected = checkedValues(".price-tier-filter");
-  const catField = chipFlowCategory === "triple" ? "total" : chipFlowCategory;
+  const catField = chipFlowCategory === "ft_buy" ? "total" : chipFlowCategory;
   return flow.rows
     .map(r => {
       const win = r.windows[chipFlowWindow];
@@ -1107,18 +1352,22 @@ function chipFlowRows() {
         stock_id: r.stock_id, name: meta.name || "", group: meta.group || "未分類", all_groups: meta.all_groups || [],
         close, price_tier: priceTierOf(close),
         net_amt, net_shares, pct_of_trading_value: pct,
-        triple_buy_days: win.triple_buy_days,
+        ft_buy_days: win.ft_buy_days,
         consecutive_days: r.consecutive_buy_days[catField],
       };
     })
     .filter(r => r !== null)
     .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
     .filter(r => groupFilterPass(r, groupSelected))
-    .filter(r => priceTierFilterPass(r, priceTierSelected));
+    .filter(r => priceTierFilterPass(r, priceTierSelected))
+    // 2026-08-12使用者要求：選「外資投信齊買」時只列出該窗口內有齊買天數的個股，
+    // 不是像其他分類一樣單純換排序欄位——ft_buy是篩選條件，不是欄位切換。
+    .filter(r => chipFlowCategory !== "ft_buy" || (r.ft_buy_days || 0) > 0);
 }
 
 function renderChipHolder() {
-  const rows = sortRows(chipHolderRows(), sortKeyChipHolder, sortDirChipHolder);
+  const allRows = sortRows(chipHolderRows(), sortKeyChipHolder, sortDirChipHolder);
+  const rows = allRows.slice(0, CHIP_HOLDER_LIMIT);
   const tbody = document.getElementById("tbody-chip-holder");
   tbody.innerHTML = "";
   document.getElementById("empty-chip-holder").style.display = rows.length ? "none" : "block";
@@ -1128,19 +1377,25 @@ function renderChipHolder() {
       <td data-key="stock_id">${r.stock_id}</td>
       <td data-key="name">${r.name}</td>
       <td data-key="group">${r.group}</td>
-      <td data-key="change_pp">${r.change_pp != null ? (r.change_pp > 0 ? "+" : "") + r.change_pp : ""}</td>
+      <td data-key="change_pp">${r.change_pp != null ? (r.change_pp > 0 ? "+" : "") + r.change_pp : ""}${r.is_capital_anomaly ? " ⚠️" : ""}</td>
+      <td data-key="retail_change_pp">${pctCellHtml(r.retail_change_pp, true)}</td>
+      <td data-key="margin_change_pct">${r.margin_available === false ? "—" : (r.margin_change_pct != null ? (r.margin_change_pct > 0 ? "+" : "") + r.margin_change_pct + "%" : "—")}</td>
+      <td data-key="short_margin_ratio_pct">${r.short_margin_ratio_pct != null ? r.short_margin_ratio_pct + "%" : "—"}${r.short_alert ? " 🔴🔴" : ""}</td>
+      <td data-key="combo">${r.combo ?? "—"}</td>
     `;
     tbody.appendChild(tr);
   }
   markSortedHeaders("#tbl-chip-holder", sortKeyChipHolder, sortDirChipHolder);
 
-  document.getElementById("chip-holder-mode-note").textContent = mode === "long"
-    ? "目前顯示：多方（本週大戶持股比例增加的個股）"
-    : "目前顯示：空方（本週大戶持股比例減少的個股）";
+  document.getElementById("chip-holder-mode-note").textContent = (mode === "long"
+    ? "目前顯示：多方（本週大戶持股比例增加的個股，前50檔）"
+    : "目前顯示：空方（本週大戶持股比例減少的個股，前50檔）");
 
   const bh = DATA.chip_board && DATA.chip_board.big_holder;
   document.getElementById("chip-holder-week-note").textContent = (bh && bh.available)
     ? `資料週別：${bh.snapshot_date}（前一期：${bh.prev_snapshot_date || "無"}）— 集保股權分散表是「週資料」，不是當日數據，只能看週對週變化`
+      + `；融資/券資比資料：${bh.margin_data_date || "無"}`
+      + (bh.short_margin_ratio_threshold != null ? `；券資比異常門檻(股池90分位近似值)：${bh.short_margin_ratio_threshold.toFixed(2)}%` : "")
     : "目前沒有大戶持股資料";
 }
 
@@ -1160,7 +1415,7 @@ function renderChipFlow() {
       <td data-key="net_shares">${r.net_shares != null ? r.net_shares.toLocaleString() : ""}</td>
       <td data-key="pct_of_trading_value">${r.pct_of_trading_value != null ? r.pct_of_trading_value + "%" : ""}</td>
       <td data-key="consecutive_days">${r.consecutive_days != null ? r.consecutive_days + "天" : ""}</td>
-      <td data-key="triple_buy_days">${r.triple_buy_days != null ? r.triple_buy_days + "天" : ""}</td>
+      <td data-key="ft_buy_days">${r.ft_buy_days != null ? r.ft_buy_days + "天" : ""}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -1173,9 +1428,111 @@ function renderChipFlow() {
     : "目前沒有法人買賣超資料";
 }
 
+// 規格書§7.1要求：「大戶買/散戶賣用一色，大戶賣/散戶買用另一色」——兩者代表同一種籌碼
+// 方向(大戶增碼 或 散戶減碼，都是強者吃貨)，顏色要對齊，不是單純依正負號上色。
+// invert=true用於散戶欄：散戶賣(負值)要顯示成跟大戶買同色(橘)，散戶買(正值)同色於大戶賣(綠)，
+// 橘/綠沿用現有.holder-tag的籌碼面色彩慣例，不是價格漲跌的紅/綠(那是不同語意的--up/--down)。
+function pctCellHtml(v, invert) {
+  if (v == null) return "—";
+  if (v === 0) return "0";
+  const bullish = invert ? v < 0 : v > 0;
+  const cls = bullish ? "chip-bullish" : "chip-bearish";
+  const sign = v > 0 ? "+" : "";
+  return `<span class="${cls}">${sign}${v}</span>`;
+}
+
+function chipMarginRows() {
+  const margin = DATA.chip_board && DATA.chip_board.margin_flow;
+  if (!margin) return [];
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const groupSelected = selectedGroups();
+  const priceTierSelected = checkedValues(".price-tier-filter");
+  return margin.rows
+    .map(r => {
+      const win = r.windows[chipMarginWindow];
+      if (!win) return null;
+      const meta = DATA.stocks[r.stock_id] || {};
+      const close = CLOSE_MAP[r.stock_id];
+      return {
+        stock_id: r.stock_id, name: meta.name || "", group: meta.group || "未分類", all_groups: meta.all_groups || [],
+        close, price_tier: priceTierOf(close),
+        margin: win.margin, short: win.short, lending: win.lending, lending_sell: win.lending_sell,
+        margin_pct: win.margin.change_pct, short_pct: win.short.change_pct, lending_pct: win.lending.change_pct,
+        lending_sell_pct: win.lending_sell ? win.lending_sell.change_pct : null,
+        short_margin_ratio_pct: r.short_margin_ratio_pct,
+        as_of_date: r.as_of_date,
+      };
+    })
+    .filter(r => r !== null)
+    .filter(r => !q || r.stock_id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q))
+    .filter(r => groupFilterPass(r, groupSelected))
+    .filter(r => priceTierFilterPass(r, priceTierSelected));
+}
+
+// 融資/融券/借券的窗口變化格式：張數+變化率%，用紅漲綠跌(--up/--down)同一套台股慣例上色，
+// 不套用大戶/散戶那組chip-bullish/bearish語意配色(這裡沒有既定的多空解讀，只是單純增減)。
+function marginChangeCellHtml(change) {
+  if (!change || change.change_lots == null) return "—";
+  const lots = change.change_lots;
+  const pctText = change.change_pct != null ? `(${change.change_pct > 0 ? "+" : ""}${change.change_pct}%)` : "";
+  const color = lots > 0 ? "var(--up)" : (lots < 0 ? "var(--down)" : "var(--text)");
+  const sign = lots > 0 ? "+" : "";
+  return `<span style="color:${color}">${sign}${lots}張${pctText}</span>`;
+}
+
+// margin/short/lending是{change_lots, change_pct}物件，不是純數字——不能直接用sortRows()
+// (它對非字串值做va-vb相減，物件相減會是NaN)，改用change_pct(%)當比較基準
+// (2026-08-14使用者要求：融資/融券排序要看變化率%，不要看絕對張數)。
+function sortChipMarginRows(rows, key, dir) {
+  const extract = (r) => {
+    if (key === "margin" || key === "short" || key === "lending" || key === "lending_sell") {
+      const obj = r[key];
+      return (obj && obj.change_pct != null) ? obj.change_pct : null;
+    }
+    return r[key];
+  };
+  rows.sort((a, b) => {
+    let va = extract(a), vb = extract(b);
+    if (va == null) va = dir === 1 ? Infinity : -Infinity;
+    if (vb == null) vb = dir === 1 ? Infinity : -Infinity;
+    if (typeof va === "string") return va.localeCompare(vb) * dir;
+    return (va - vb) * dir;
+  });
+  return rows;
+}
+
+function renderChipMargin() {
+  const rows = sortChipMarginRows(chipMarginRows(), sortKeyChipMargin, sortDirChipMargin);
+  const tbody = document.getElementById("tbody-chip-margin");
+  tbody.innerHTML = "";
+  document.getElementById("empty-chip-margin").style.display = rows.length ? "none" : "block";
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td data-key="stock_id">${r.stock_id}</td>
+      <td data-key="name">${r.name}</td>
+      <td data-key="group">${r.group}</td>
+      <td data-key="margin">${marginChangeCellHtml(r.margin)}</td>
+      <td data-key="short">${marginChangeCellHtml(r.short)}</td>
+      <td data-key="lending">${marginChangeCellHtml(r.lending)}</td>
+      <td data-key="lending_sell">${marginChangeCellHtml(r.lending_sell)}</td>
+      <td data-key="short_margin_ratio_pct">${r.short_margin_ratio_pct != null ? r.short_margin_ratio_pct + "%" : "—"}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  markSortedHeaders("#tbl-chip-margin", sortKeyChipMargin, sortDirChipMargin);
+  applyColumnVisibility("#tbl-chip-margin", ".col-toggle-margin");
+
+  const margin = DATA.chip_board && DATA.chip_board.margin_flow;
+  document.getElementById("chip-margin-date-note").textContent = (margin && margin.available !== false && rows.length)
+    ? `資料日期：${rows[0].as_of_date || "—"}（來源：TWSE/TPEx官方全市場端點，跟FinMind無關）`
+    : "目前沒有資券進出資料";
+}
+
 function renderChipBoard() {
   renderChipHolder();
   renderChipFlow();
+  renderChipMargin();
 }
 
 function render() {
@@ -1242,7 +1599,7 @@ document.querySelectorAll(".ma-filter, .neckline-filter, .price-tier-filter, .mo
 });
 document.getElementById("trap-filter").addEventListener("change", () => { saveUiState(); render(); });
 
-document.querySelectorAll(".col-toggle-support, .col-toggle-momentum").forEach(cb => {
+document.querySelectorAll(".col-toggle-support, .col-toggle-momentum, .col-toggle-margin").forEach(cb => {
   cb.addEventListener("change", () => { saveUiState(); render(); });
 });
 
@@ -1316,6 +1673,7 @@ document.querySelectorAll("#chip-section-toggle button").forEach(btn => {
     document.querySelectorAll("#chip-section-toggle button").forEach(b => b.classList.toggle("active", b === btn));
     document.getElementById("chip-section-holder").style.display = (chipSection === "holder") ? "" : "none";
     document.getElementById("chip-section-flow").style.display = (chipSection === "flow") ? "" : "none";
+    document.getElementById("chip-section-margin").style.display = (chipSection === "margin") ? "" : "none";
     saveUiState();
   });
 });
@@ -1330,6 +1688,7 @@ document.querySelectorAll("#chip-holder-tier-toggle button").forEach(btn => {
 document.querySelectorAll("#chip-flow-category-toggle button").forEach(btn => {
   btn.addEventListener("click", () => {
     chipFlowCategory = btn.dataset.category;
+    if (chipFlowCategory === "ft_buy") { sortKeyChipFlow = "ft_buy_days"; sortDirChipFlow = -1; }
     document.querySelectorAll("#chip-flow-category-toggle button").forEach(b => b.classList.toggle("active", b === btn));
     saveUiState();
     render();
@@ -1337,6 +1696,11 @@ document.querySelectorAll("#chip-flow-category-toggle button").forEach(btn => {
 });
 document.getElementById("chip-flow-window").addEventListener("change", (e) => {
   chipFlowWindow = parseInt(e.target.value, 10);
+  saveUiState();
+  render();
+});
+document.getElementById("chip-margin-window").addEventListener("change", (e) => {
+  chipMarginWindow = parseInt(e.target.value, 10);
   saveUiState();
   render();
 });
@@ -1353,6 +1717,14 @@ document.querySelectorAll("#tbl-chip-flow th[data-key]").forEach(th => {
     const key = th.dataset.key;
     if (key === sortKeyChipFlow) sortDirChipFlow *= -1;
     else { sortKeyChipFlow = key; sortDirChipFlow = -1; }
+    render();
+  });
+});
+document.querySelectorAll("#tbl-chip-margin th[data-key]").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    if (key === sortKeyChipMargin) sortDirChipMargin *= -1;
+    else { sortKeyChipMargin = key; sortDirChipMargin = -1; }
     render();
   });
 });
