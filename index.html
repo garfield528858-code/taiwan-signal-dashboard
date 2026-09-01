@@ -210,7 +210,6 @@
         <button type="button" class="nav-item" data-board="disposition">處置專區</button>
         <button type="button" class="nav-item" data-board="groups">族群強度</button>
         <button type="button" class="nav-item" data-board="chip">真金白銀</button>
-        <button type="button" class="nav-item" data-board="annotation">標註進度</button>
       </div>
     </div>
     <h1>📋 台股綜合買入/做空評分</h1>
@@ -504,56 +503,6 @@
     </div>
   </div>
 
-  <div class="main-col" id="annotation-view" style="display:none">
-    <h3 class="section-title">頸線標註進度</h3>
-    <div class="kpi-row" id="annotation-kpi-row">
-      <div class="kpi-card"><div class="kpi-value" id="kpi-ann-covered">–</div><div class="kpi-label">已標／股池</div></div>
-      <div class="kpi-card"><div class="kpi-value" id="kpi-ann-pct">–</div><div class="kpi-label">已標佔比</div></div>
-      <div class="kpi-card"><div class="kpi-value" id="kpi-ann-numeric">–</div><div class="kpi-label">有數字線</div></div>
-      <div class="kpi-card"><div class="kpi-value" id="kpi-ann-na">–</div><div class="kpi-label">僅NA確認</div></div>
-      <div class="kpi-card"><div class="kpi-value" id="kpi-ann-uncovered">–</div><div class="kpi-label">未覆蓋</div></div>
-    </div>
-
-    <h3 class="section-title">已標（依現價距最近手動線%由近到遠排）</h3>
-    <div class="table-wrap">
-      <table id="tbl-annotation">
-        <thead>
-          <tr>
-            <th data-key="stock_id">代號</th><th data-key="name">名稱</th><th data-key="price">現價</th>
-            <th data-key="nearest_line_price">最近的線</th><th data-key="nearest_direction">支撐/壓力</th>
-            <th data-key="abs_dist_pct">距離%</th><th data-key="risk_reward">R:R</th>
-            <th data-key="note" class="wrap-text">型態備註</th><th data-key="line_count">線數</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-annotation"></tbody>
-      </table>
-      <div id="empty-annotation" style="display:none">目前沒有已標數字線的股票。</div>
-    </div>
-
-    <h3 class="section-title">僅NA確認（已看過、確認上方無壓／下方無撐，不用再提醒）</h3>
-    <div class="table-wrap">
-      <table id="tbl-annotation-na">
-        <thead>
-          <tr><th>代號</th><th>名稱</th><th>現價</th><th>上方無壓</th><th>下方無撐</th></tr>
-        </thead>
-        <tbody id="tbody-annotation-na"></tbody>
-      </table>
-      <div id="empty-annotation-na" style="display:none">目前沒有僅NA確認的股票。</div>
-    </div>
-
-    <h3 class="section-title">未覆蓋（依現價高到低排，還沒有任何紀錄）</h3>
-    <div class="board-note">🟣＝未來30天內除權除息，建議留到除權息後再標，避免畫兩次。</div>
-    <div class="table-wrap">
-      <table id="tbl-annotation-uncovered">
-        <thead>
-          <tr><th>代號</th><th>名稱</th><th>現價</th><th>除權息將至</th></tr>
-        </thead>
-        <tbody id="tbody-annotation-uncovered"></tbody>
-      </table>
-      <div id="empty-annotation-uncovered" style="display:none">全部股票都已有紀錄。</div>
-    </div>
-  </div>
-
   <div class="main-col" id="chip-view" style="display:none">
     <div class="toggle" id="chip-section-toggle">
       <button type="button" data-section="holder" class="active">大戶持股</button>
@@ -714,8 +663,6 @@ let sortKeyMomentum = "momentum_score";
 let sortDirMomentum = -1;
 let sortKeyGroups = "leading_score";
 let sortDirGroups = -1;
-let sortKeyAnnotation = "abs_dist_pct";
-let sortDirAnnotation = 1; // 1 asc：預設距離%由近到遠
 let maAndOr = "AND";
 let chipSection = "holder"; // "holder"/"flow"/"margin"，真金白銀頁面內的子頁籤，不用滑鼠滾動切換
 let chipHolderTier = "1000張";
@@ -769,7 +716,7 @@ function loadUiState() {
 function applyUiState(state) {
   if (!state) return;
   mode = state.mode === "short" ? "short" : "long";
-  board = ["support", "momentum", "groups", "disposition", "chip", "annotation"].includes(state.board) ? state.board : "support";
+  board = ["support", "momentum", "groups", "disposition", "chip"].includes(state.board) ? state.board : "support";
   document.getElementById("search").value = state.search || "";
   document.querySelectorAll(".ma-filter").forEach(cb => cb.checked = (state.maFilters || []).includes(cb.value));
   document.querySelectorAll(".neckline-filter").forEach(cb => cb.checked = (state.necklineFilters || []).includes(cb.value));
@@ -810,10 +757,10 @@ function applyBoardVisibility(b) {
   document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.board === b));
   const viewMap = {
     support: "support-view", momentum: "momentum-view", groups: "groups-view",
-    disposition: "disposition-view", chip: "chip-view", annotation: "annotation-view",
+    disposition: "disposition-view", chip: "chip-view",
   };
   Object.entries(viewMap).forEach(([key, id]) => { document.getElementById(id).style.display = (key === b) ? "" : "none"; });
-  document.getElementById("group-filter-wrap").style.display = (b === "groups" || b === "annotation") ? "none" : "";
+  document.getElementById("group-filter-wrap").style.display = (b === "groups") ? "none" : "";
   document.getElementById("price-tier-group").style.display = (b === "support" || b === "momentum" || b === "chip") ? "" : "none";
   // 多方/空方按鈕是全站共用的mode切換，「做多/做空」暗示實際交易動作，2026-08-12使用者
   // 要求改成「訊號」用詞(保守派/進擊の股票)、籌碼面資料則用「籌碼偏多/偏空」(真金白銀)，
@@ -1593,69 +1540,7 @@ function render() {
   else if (board === "momentum") renderMomentum();
   else if (board === "groups") renderGroups();
   else if (board === "chip") renderChipBoard();
-  else if (board === "annotation") renderAnnotation();
   else renderDisposition();
-}
-
-function renderAnnotation() {
-  const ap = DATA.annotation_progress || {};
-  const summary = ap.summary || {};
-  document.getElementById("kpi-ann-covered").textContent = `${summary.covered_count ?? "–"}／${summary.total ?? "–"}`;
-  document.getElementById("kpi-ann-pct").textContent = summary.covered_pct != null ? summary.covered_pct + "%" : "–";
-  document.getElementById("kpi-ann-numeric").textContent = summary.numeric_line_count ?? "–";
-  document.getElementById("kpi-ann-na").textContent = summary.na_only_count ?? "–";
-  document.getElementById("kpi-ann-uncovered").textContent = summary.uncovered_count ?? "–";
-
-  const annotatedRows = (ap.annotated || []).map(r => ({
-    ...r, abs_dist_pct: r.dist_pct != null ? Math.abs(r.dist_pct) : null,
-  }));
-  const rows = sortRows(annotatedRows, sortKeyAnnotation, sortDirAnnotation);
-  const tbody = document.getElementById("tbody-annotation");
-  tbody.innerHTML = "";
-  document.getElementById("empty-annotation").style.display = rows.length ? "none" : "block";
-  for (const r of rows) {
-    const dirText = r.nearest_direction === "support" ? "支撐" : (r.nearest_direction === "resistance" ? "壓力" : "");
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td data-key="stock_id">${r.stock_id}</td>
-      <td data-key="name">${r.name}${r.is_ex_dividend_soon ? ' <span title="未來30天內除權除息">🟣</span>' : ""}</td>
-      <td data-key="price">${r.price ?? ""}</td>
-      <td data-key="nearest_line_price">${r.nearest_line_price ?? ""}</td>
-      <td data-key="nearest_direction">${dirText}</td>
-      <td data-key="abs_dist_pct">${r.dist_pct != null ? r.dist_pct + "%" : ""}</td>
-      <td data-key="risk_reward">${r.risk_reward ?? ""}</td>
-      <td data-key="note" class="wrap-text">${r.note ?? ""}</td>
-      <td data-key="line_count">${r.line_count ?? ""}</td>
-    `;
-    tbody.appendChild(tr);
-  }
-  markSortedHeaders("#tbl-annotation", sortKeyAnnotation, sortDirAnnotation);
-
-  const naRows = ap.na_only || [];
-  const tbodyNa = document.getElementById("tbody-annotation-na");
-  tbodyNa.innerHTML = "";
-  document.getElementById("empty-annotation-na").style.display = naRows.length ? "none" : "block";
-  for (const r of naRows) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${r.stock_id}</td><td>${r.name}${r.is_ex_dividend_soon ? ' <span title="未來30天內除權除息">🟣</span>' : ""}</td>
-      <td>${r.price ?? ""}</td><td>${r.no_resistance_above ? "是" : ""}</td><td>${r.no_support_below ? "是" : ""}</td>
-    `;
-    tbodyNa.appendChild(tr);
-  }
-
-  const uncoveredRows = ap.uncovered || [];
-  const tbodyUn = document.getElementById("tbody-annotation-uncovered");
-  tbodyUn.innerHTML = "";
-  document.getElementById("empty-annotation-uncovered").style.display = uncoveredRows.length ? "none" : "block";
-  for (const r of uncoveredRows) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${r.stock_id}</td><td>${r.name}</td><td>${r.price ?? ""}</td>
-      <td>${r.is_ex_dividend_soon ? "🟣" : ""}</td>
-    `;
-    tbodyUn.appendChild(tr);
-  }
 }
 
 document.getElementById("btn-long").addEventListener("click", () => {
@@ -1778,14 +1663,6 @@ document.querySelectorAll("#tbl-groups th[data-key]").forEach(th => {
     const key = th.dataset.key;
     if (key === sortKeyGroups) sortDirGroups *= -1;
     else { sortKeyGroups = key; sortDirGroups = -1; }
-    render();
-  });
-});
-document.querySelectorAll("#tbl-annotation th[data-key]").forEach(th => {
-  th.addEventListener("click", () => {
-    const key = th.dataset.key;
-    if (key === sortKeyAnnotation) sortDirAnnotation *= -1;
-    else { sortKeyAnnotation = key; sortDirAnnotation = key === "abs_dist_pct" ? 1 : -1; }
     render();
   });
 });
